@@ -33,12 +33,15 @@ export function generateSquares() {
 }
 
 function piece(coordinates: string) {
-  if (coordinates[1] == "2" || coordinates[1] == "7") return <Pawn />;
-  if (coordinates == "a1" || coordinates == "h1" || coordinates == "a8" || coordinates == "h8") return <Rook />;
-  if (coordinates == "b1" || coordinates == "g1" || coordinates == "b8" || coordinates == "g8") return <Knight />;
-  if (coordinates == "c1" || coordinates == "f1" || coordinates == "c8" || coordinates == "f8") return <Bishop />;
-  if (coordinates == "d1" || coordinates == "d8") return <Queen />;
-  if (coordinates == "e1" || coordinates == "e8") return <King />;
+  if (coordinates[1] == "2" || coordinates[1] == "7") return <Pawn team={coordinates[1] == "2" ? "bright" : "dark"} />;
+  if (coordinates == "a1" || coordinates == "h1" || coordinates == "a8" || coordinates == "h8")
+    return <Rook team={coordinates[1] == "1" ? "bright" : "dark"} />;
+  if (coordinates == "b1" || coordinates == "g1" || coordinates == "b8" || coordinates == "g8")
+    return <Knight team={coordinates[1] == "1" ? "bright" : "dark"} />;
+  if (coordinates == "c1" || coordinates == "f1" || coordinates == "c8" || coordinates == "f8")
+    return <Bishop team={coordinates[1] == "1" ? "bright" : "dark"} />;
+  if (coordinates == "d1" || coordinates == "d8") return <Queen team={coordinates[1] == "1" ? "bright" : "dark"} />;
+  if (coordinates == "e1" || coordinates == "e8") return <King team={coordinates[1] == "1" ? "bright" : "dark"} />;
   return null;
 }
 
@@ -54,4 +57,8 @@ export function updateSquare(square: Square, setSquares: SetSquaresType, newSqua
         : row
     )
   );
+}
+
+export function color(team: "bright" | "dark") {
+  return team == "bright" ? "rgb(100,100,255)" : "rgb(158,181,158)";
 }

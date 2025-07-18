@@ -16,7 +16,7 @@ export default function Board({ squares, click }: { squares: any[][]; click: (sq
             }
           >
             {square.selected && <div className="absolute inset-0 bg-blue-500 opacity-20 z-10"></div>}
-            <div className="absolute z-20">{square.piece}</div>
+            <div className="absolute inset-0 z-20 w-full h-full flex items-center justify-center">{square.piece}</div>
           </div>
         ))
       )}
