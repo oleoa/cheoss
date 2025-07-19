@@ -5,7 +5,7 @@ import Bishop from "./../components/pieces/Bishop";
 import Queen from "./../components/pieces/Queen";
 import King from "./../components/pieces/King";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { ReactElement } from "react";
 
 type PieceName = "pawn" | "rook" | "bishop" | "knight" | "queen" | "king";
@@ -32,6 +32,11 @@ export interface Square {
 export default function useChess() {
   const [squares, setSquares] = useState(generateSquares);
   const updateSquare = (currentSquare: Square, newSquare: Square) => {
+    const newSquares = squares.map((row, r) =>
+      r == 8 - Number(currentSquare.id[1])
+        ? row.map((val, c) => (c === ["a", "b", "c", "d", "e", "f", "g", "h"].findIndex((column) => column == currentSquare.id[0]) ? newSquare : val))
+        : row
+    );
     setSquares((oldSquares) =>
       oldSquares.map((row, r) =>
         r == 8 - Number(currentSquare.id[1])
@@ -39,6 +44,7 @@ export default function useChess() {
           : row
       )
     );
+    return newSquares;
   };
 
   const [selectedSquare, setSelectedSquare] = useState<Square | null>(null);
@@ -53,8 +59,11 @@ export default function useChess() {
     setPossibleSquares((prevPossibilities) => [square, ...prevPossibilities]);
     updateSquare(square, { ...square, possibility: true });
   };
-  const calculatePossibleMoves = (square: Square) => {
-    if (!square || !square.piece) return;
+  const setPossibilities = (possibilities: Square[]) => {
+    possibilities.forEach((p) => setPossibility(p));
+  };
+  const calculatePossibleMoves = (square: Square): Square[] => {
+    if (!square || !square.piece) return [];
 
     const foward = (square: Square, rows: number = 1): number => {
       if (!square.piece) return -1;
@@ -183,79 +192,76 @@ export default function useChess() {
 
     if (square.piece.name == "pawn") {
       // Can only walks 2 ahead in case is in the first row and there is nothing blocking it
+      const possibilities: Square[] = [];
       if (
         (square.piece.team == "bright" ? square.row == 2 : square.row == 7) &&
         !squares[foward(square)][square.columnIndex].piece &&
         !squares[foward(square, 2)][square.columnIndex].piece
       )
-        setPossibility(squares[foward(square, 2)][square.columnIndex]);
+        possibilities.push(squares[foward(square, 2)][square.columnIndex]);
 
       // Can capture if there is an enemy piece on the diagonals
       const diagonalLeftPiece = squares[foward(square)][square.columnIndex - 1] ? squares[foward(square)][square.columnIndex - 1].piece : null;
-      if (diagonalLeftPiece && diagonalLeftPiece.team != square.piece.team) setPossibility(squares[foward(square)][square.columnIndex - 1]);
+      if (diagonalLeftPiece && diagonalLeftPiece.team != square.piece.team) possibilities.push(squares[foward(square)][square.columnIndex - 1]);
       const diagonalRightPiece = squares[foward(square)][square.columnIndex + 1] ? squares[foward(square)][square.columnIndex + 1].piece : null;
-      if (diagonalRightPiece && diagonalRightPiece.team != square.piece.team) setPossibility(squares[foward(square)][square.columnIndex + 1]);
+      if (diagonalRightPiece && diagonalRightPiece.team != square.piece.team) possibilities.push(squares[foward(square)][square.columnIndex + 1]);
 
       // Can only walk foward if the next square is not occupied
-      if (!squares[foward(square)][square.columnIndex].piece) setPossibility(squares[foward(square)][square.columnIndex]);
-
-      return;
+      if (!squares[foward(square)][square.columnIndex].piece) possibilities.push(squares[foward(square)][square.columnIndex]);
+      return possibilities;
     }
 
     if (square.piece.name == "knight") {
       // Can walk into any direction in an L if there is not a piece of his own
-      lshape(square).forEach((s) => {
-        if (!s.piece || s.piece.team != square.piece?.team) setPossibility(s);
-      });
-
-      return;
+      return lshape(square).filter((s) => !s.piece || s.piece.team != square.piece?.team);
     }
 
     if (square.piece.name == "bishop") {
       // Can walk into many squares in any of the four diagonal, stops the diagonal in case there is a piece there
+      const possibilities: Square[] = [];
       diagonals(square).forEach((ps) => {
         for (let i = 0; i < ps.length; i++) {
           const p = ps[i];
           if (p.piece && p.piece.team == square.piece?.team) break;
           if (p.piece && p.piece.team != square.piece?.team) {
-            setPossibility(p);
+            possibilities.push(p);
             break;
           }
-          setPossibility(p);
+          possibilities.push(p);
         }
       });
-
-      return;
+      return possibilities;
     }
 
     if (square.piece.name == "rook") {
       // Can walk into many squares in any of the four straight lines, stops the line in case there is a piece there
+      const possibilities: Square[] = [];
       lines(square).forEach((ps) => {
         for (let i = 0; i < ps.length; i++) {
           const p = ps[i];
           if (p.piece && p.piece.team == square.piece?.team) break;
           if (p.piece && p.piece.team != square.piece?.team) {
-            setPossibility(p);
+            possibilities.push(p);
             break;
           }
-          setPossibility(p);
+          possibilities.push(p);
         }
       });
-
-      return;
+      return possibilities;
     }
 
     if (square.piece.name == "queen") {
       // Bishop + Rook
+      const possibilities: Square[] = [];
       lines(square).forEach((ps) => {
         for (let i = 0; i < ps.length; i++) {
           const p = ps[i];
           if (p.piece && p.piece.team == square.piece?.team) break;
           if (p.piece && p.piece.team != square.piece?.team) {
-            setPossibility(p);
+            possibilities.push(p);
             break;
           }
-          setPossibility(p);
+          possibilities.push(p);
         }
       });
       diagonals(square).forEach((ps) => {
@@ -263,28 +269,27 @@ export default function useChess() {
           const p = ps[i];
           if (p.piece && p.piece.team == square.piece?.team) break;
           if (p.piece && p.piece.team != square.piece?.team) {
-            setPossibility(p);
+            possibilities.push(p);
             break;
           }
-          setPossibility(p);
+          possibilities.push(p);
         }
       });
-
-      return;
+      return possibilities;
     }
 
     if (square.piece.name == "king") {
       // Can walk into the neighbors squares in case there is no ally piece
+      const possibilities: Square[] = [];
       neighbors(square).forEach((s) => {
         if (s.piece && s.piece.team == square.piece?.team) return;
         if (s.piece && s.piece.team != square.piece?.team) {
-          setPossibility(s);
+          possibilities.push(s);
           return;
         }
-        setPossibility(s);
+        possibilities.push(s);
       });
-
-      return;
+      return possibilities;
     }
 
     return [];
@@ -301,6 +306,31 @@ export default function useChess() {
     setPlayingTeam((prevTeam) => (prevTeam == "bright" ? "dark" : "bright"));
   };
 
+  const targetingSquares = useMemo(() => {
+    const teams: TeamType[] = ["bright", "dark"];
+    const pieces: Square[][] = [];
+    const targets: Square[][] = [];
+
+    teams.forEach((team, i) => {
+      pieces.push([]);
+      squares.forEach((row) => {
+        const squareRowsWithPieces = row.filter((s) => s.piece);
+        if (squareRowsWithPieces.length === 0) return;
+        const squareRowsWithRightTeamPieces = squareRowsWithPieces.filter((s) => s.piece?.team === team);
+        if (squareRowsWithRightTeamPieces.length === 0) return;
+        squareRowsWithRightTeamPieces.forEach((square) => {
+          pieces[i].push(square);
+          console.log("Hello");
+        });
+      });
+    });
+
+    console.log(pieces);
+
+    return targets;
+  }, [squares]);
+  console.log(targetingSquares);
+
   // Function responsible for when the player is setting a new selection for his piece (only chosing, not moving)
   const newSelection = (clickedSquare: Square) => {
     if (!clickedSquare.piece) return;
@@ -312,7 +342,8 @@ export default function useChess() {
     updateSquare(clickedSquare, { ...clickedSquare, selected: !clickedSquare.selected });
 
     // Calculates and shows the player what squares that piece can move to
-    calculatePossibleMoves(clickedSquare);
+    const possibilities = calculatePossibleMoves(clickedSquare);
+    setPossibilities(possibilities);
   };
 
   // Function responsible for when the player is trying to move his piece to a new square (not selection, only moving an already selected piece)
@@ -415,13 +446,6 @@ function generateSquares() {
         team: coordinates[1] == "1" ? "bright" : "dark",
         jsx: <King team={coordinates[1] == "1" ? "bright" : "dark"} />,
       };
-
-    // if (coordinates == "h5")
-    //   return {
-    //     name: "rook",
-    //     team: "bright",
-    //     jsx: <Rook team={"bright"} />,
-    //   };
 
     return null;
   }
