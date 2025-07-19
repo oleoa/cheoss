@@ -146,6 +146,44 @@ export default function useChess() {
       return [dtr, dtl, dbr, dbl].filter((c) => c);
     };
 
+    const lines = (square: Square): Square[][] => {
+      const t: Square[] = [];
+      const b: Square[] = [];
+      const r: Square[] = [];
+      const l: Square[] = [];
+
+      let counter = 1;
+      for (let i = square.rowIndex - 1; i >= 0; i--) {
+        if (!squares[top(square, counter)][square.columnIndex]) break;
+        t.push(squares[top(square, counter)][square.columnIndex]);
+        counter++;
+      }
+      counter = 1;
+
+      for (let i = square.rowIndex + 1; i <= 7; i++) {
+        if (!squares[bottom(square, counter)][square.columnIndex]) break;
+        b.push(squares[bottom(square, counter)][square.columnIndex]);
+        counter++;
+      }
+      counter = 1;
+
+      for (let i = square.columnIndex + 1; i <= 7; i++) {
+        if (!squares[square.rowIndex][right(square, counter)]) break;
+        r.push(squares[square.rowIndex][right(square, counter)]);
+        counter++;
+      }
+      counter = 1;
+
+      for (let i = square.columnIndex - 1; i >= 0; i--) {
+        if (!squares[square.rowIndex][left(square, counter)]) break;
+        l.push(squares[square.rowIndex][left(square, counter)]);
+        counter++;
+      }
+      counter = 1;
+
+      return [t, b, r, l].filter((c) => c);
+    };
+
     if (square.piece.name == "pawn") {
       // Can only walks 2 ahead in case is in the first row and there is nothing blocking it
       if (
@@ -177,10 +215,25 @@ export default function useChess() {
     }
 
     if (square.piece.name == "bishop") {
-      console.log(diagonals(square));
-
       // Can walk into many squares in any of the four diagonal, stops the diagonal in case there is a piece there
       diagonals(square).forEach((ps) => {
+        for (let i = 0; i < ps.length; i++) {
+          const p = ps[i];
+          if (p.piece && p.piece.team == square.piece?.team) break;
+          if (p.piece && p.piece.team != square.piece?.team) {
+            setPossibility(p);
+            break;
+          }
+          setPossibility(p);
+        }
+      });
+
+      return;
+    }
+
+    if (square.piece.name == "rook") {
+      // Can walk into many squares in any of the four straight lines, stops the line in case there is a piece there
+      lines(square).forEach((ps) => {
         for (let i = 0; i < ps.length; i++) {
           const p = ps[i];
           if (p.piece && p.piece.team == square.piece?.team) break;
@@ -324,11 +377,11 @@ function generateSquares() {
         jsx: <King team={coordinates[1] == "1" ? "bright" : "dark"} />,
       };
 
-    // if (coordinates == "e2")
+    // if (coordinates == "h5")
     //   return {
-    //     name: "pawn",
+    //     name: "rook",
     //     team: "bright",
-    //     jsx: <Pawn team={"bright"} />,
+    //     jsx: <Rook team={"bright"} />,
     //   };
 
     return null;
