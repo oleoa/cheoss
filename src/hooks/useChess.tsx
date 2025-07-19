@@ -9,7 +9,7 @@ import { useState } from "react";
 import type { ReactElement } from "react";
 
 type PieceName = "pawn" | "rook" | "bishop" | "knight" | "queen" | "king";
-type TeamType = "bright" | "dark";
+export type TeamType = "bright" | "dark";
 type RowType = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
 type ColumnType = "a" | "b" | "c" | "d" | "e" | "f" | "g" | "h";
 
@@ -66,6 +66,26 @@ export default function useChess() {
       return square.piece.team == "bright" ? square.rowIndex + 1 : square.rowIndex - 1;
     };
 
+    const top = (square: Square, rows: number = 1): number => {
+      if (!square.piece) return -1;
+      return square.rowIndex - rows;
+    };
+
+    const bottom = (square: Square, rows: number = 1): number => {
+      if (!square.piece) return -1;
+      return square.rowIndex + rows;
+    };
+
+    const right = (square: Square, columns: number = 1): number => {
+      if (!square.piece) return -1;
+      return square.columnIndex + columns;
+    };
+
+    const left = (square: Square, columns: number = 1): number => {
+      if (!square.piece) return -1;
+      return square.columnIndex - columns;
+    };
+
     const twicefoward = (square: Square): number => {
       if (!square.piece) return -1;
       return square.piece.team == "bright" ? square.rowIndex - 2 : square.rowIndex + 2;
@@ -77,15 +97,53 @@ export default function useChess() {
     };
 
     const lshape = (square: Square): Square[] => {
-      const tl = squares[twicefoward(square)]?.[square.columnIndex + 1] ?? null;
-      const tr = squares[twicefoward(square)]?.[square.columnIndex - 1] ?? null;
-      const bl = squares[twicebackwards(square)]?.[square.columnIndex + 1] ?? null;
-      const br = squares[twicebackwards(square)]?.[square.columnIndex - 1] ?? null;
+      const tl = squares[twicefoward(square)]?.[right(square)] ?? null;
+      const tr = squares[twicefoward(square)]?.[left(square)] ?? null;
+      const bl = squares[twicebackwards(square)]?.[right(square)] ?? null;
+      const br = squares[twicebackwards(square)]?.[left(square)] ?? null;
       const rt = squares[foward(square)]?.[square.columnIndex - 2] ?? null;
       const rb = squares[backward(square)]?.[square.columnIndex - 2] ?? null;
       const lt = squares[foward(square)]?.[square.columnIndex + 2] ?? null;
       const lb = squares[backward(square)]?.[square.columnIndex + 2] ?? null;
       return [tl, tr, bl, br, lt, rt, lb, rb].filter((c) => c);
+    };
+
+    const diagonals = (square: Square): Square[][] => {
+      const dtr: Square[] = [];
+      const dtl: Square[] = [];
+      const dbr: Square[] = [];
+      const dbl: Square[] = [];
+
+      let counter = 1;
+      for (let i = square.rowIndex - 1; i >= 0; i--) {
+        if (!squares[top(square, counter)][right(square, counter)]) break;
+        dtr.push(squares[top(square, counter)][right(square, counter)]);
+        counter++;
+      }
+      counter = 1;
+
+      for (let i = square.rowIndex - 1; i >= 0; i--) {
+        if (!squares[top(square, counter)][left(square, counter)]) break;
+        dtl.push(squares[top(square, counter)][left(square, counter)]);
+        counter++;
+      }
+      counter = 1;
+
+      for (let i = square.rowIndex + 1; i <= 7; i++) {
+        if (!squares[bottom(square, counter)][right(square, counter)]) break;
+        dbr.push(squares[bottom(square, counter)][right(square, counter)]);
+        counter++;
+      }
+      counter = 1;
+
+      for (let i = square.rowIndex + 1; i <= 7; i++) {
+        if (!squares[bottom(square, counter)][left(square, counter)]) break;
+        dbl.push(squares[bottom(square, counter)][left(square, counter)]);
+        counter++;
+      }
+      counter = 1;
+
+      return [dtr, dtl, dbr, dbl].filter((c) => c);
     };
 
     if (square.piece.name == "pawn") {
@@ -113,6 +171,25 @@ export default function useChess() {
       // Can walk into any direction in an L if there is not a piece of his own
       lshape(square).forEach((s) => {
         if (!s.piece || s.piece.team != square.piece?.team) setPossibility(s);
+      });
+
+      return;
+    }
+
+    if (square.piece.name == "bishop") {
+      console.log(diagonals(square));
+
+      // Can walk into many squares in any of the four diagonal, stops the diagonal in case there is a piece there
+      diagonals(square).forEach((ps) => {
+        for (let i = 0; i < ps.length; i++) {
+          const p = ps[i];
+          if (p.piece && p.piece.team == square.piece?.team) break;
+          if (p.piece && p.piece.team != square.piece?.team) {
+            setPossibility(p);
+            break;
+          }
+          setPossibility(p);
+        }
       });
 
       return;
@@ -214,38 +291,46 @@ function generateSquares() {
       return {
         name: "pawn",
         team: coordinates[1] == "2" ? "bright" : "dark",
-        jsx: <Pawn team={coordinates[1] == "2" ? "bright" : "dark"} type="pawn" />,
+        jsx: <Pawn team={coordinates[1] == "2" ? "bright" : "dark"} />,
       };
     if (coordinates == "a1" || coordinates == "h1" || coordinates == "a8" || coordinates == "h8")
       return {
         name: "rook",
         team: coordinates[1] == "1" ? "bright" : "dark",
-        jsx: <Rook team={coordinates[1] == "1" ? "bright" : "dark"} type="rook" />,
+        jsx: <Rook team={coordinates[1] == "1" ? "bright" : "dark"} />,
       };
     if (coordinates == "b1" || coordinates == "g1" || coordinates == "b8" || coordinates == "g8")
       return {
         name: "knight",
         team: coordinates[1] == "1" ? "bright" : "dark",
-        jsx: <Knight team={coordinates[1] == "1" ? "bright" : "dark"} type="knight" />,
+        jsx: <Knight team={coordinates[1] == "1" ? "bright" : "dark"} />,
       };
     if (coordinates == "c1" || coordinates == "f1" || coordinates == "c8" || coordinates == "f8")
       return {
         name: "bishop",
         team: coordinates[1] == "1" ? "bright" : "dark",
-        jsx: <Bishop team={coordinates[1] == "1" ? "bright" : "dark"} type="bishop" />,
+        jsx: <Bishop team={coordinates[1] == "1" ? "bright" : "dark"} />,
       };
     if (coordinates == "d1" || coordinates == "d8")
       return {
         name: "queen",
         team: coordinates[1] == "1" ? "bright" : "dark",
-        jsx: <Queen team={coordinates[1] == "1" ? "bright" : "dark"} type="queen" />,
+        jsx: <Queen team={coordinates[1] == "1" ? "bright" : "dark"} />,
       };
     if (coordinates == "e1" || coordinates == "e8")
       return {
         name: "king",
         team: coordinates[1] == "1" ? "bright" : "dark",
-        jsx: <King team={coordinates[1] == "1" ? "bright" : "dark"} type="king" />,
+        jsx: <King team={coordinates[1] == "1" ? "bright" : "dark"} />,
       };
+
+    // if (coordinates == "e2")
+    //   return {
+    //     name: "pawn",
+    //     team: "bright",
+    //     jsx: <Pawn team={"bright"} />,
+    //   };
+
     return null;
   }
 
