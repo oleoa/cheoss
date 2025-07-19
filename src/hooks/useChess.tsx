@@ -23,6 +23,7 @@ export interface Square {
   } | null;
   selected: boolean;
   possibility: boolean;
+  treat: boolean;
   row: RowType;
   rowIndex: number;
   column: ColumnType;
@@ -62,7 +63,7 @@ export default function useChess() {
   const setPossibilities = (possibilities: Square[]) => {
     possibilities.forEach((p) => setPossibility(p));
   };
-  const calculatePossibleMoves = (square: Square): Square[] => {
+  const calculatePossible = (type: "moves" | "captures", square: Square): Square[] => {
     if (!square || !square.piece) return [];
 
     const foward = (square: Square, rows: number = 1): number => {
@@ -191,105 +192,189 @@ export default function useChess() {
     };
 
     if (square.piece.name == "pawn") {
-      // Can only walks 2 ahead in case is in the first row and there is nothing blocking it
       const possibilities: Square[] = [];
-      if (
-        (square.piece.team == "bright" ? square.row == 2 : square.row == 7) &&
-        !squares[foward(square)][square.columnIndex].piece &&
-        !squares[foward(square, 2)][square.columnIndex].piece
-      )
-        possibilities.push(squares[foward(square, 2)][square.columnIndex]);
+      if (type == "moves") {
+        // Can only walks 2 ahead in case is in the first row and there is nothing blocking it
+        if (
+          (square.piece.team == "bright" ? square.row == 2 : square.row == 7) &&
+          !squares[foward(square)][square.columnIndex].piece &&
+          !squares[foward(square, 2)][square.columnIndex].piece
+        )
+          possibilities.push(squares[foward(square, 2)][square.columnIndex]);
 
-      // Can capture if there is an enemy piece on the diagonals
-      const diagonalLeftPiece = squares[foward(square)][square.columnIndex - 1] ? squares[foward(square)][square.columnIndex - 1].piece : null;
-      if (diagonalLeftPiece && diagonalLeftPiece.team != square.piece.team) possibilities.push(squares[foward(square)][square.columnIndex - 1]);
-      const diagonalRightPiece = squares[foward(square)][square.columnIndex + 1] ? squares[foward(square)][square.columnIndex + 1].piece : null;
-      if (diagonalRightPiece && diagonalRightPiece.team != square.piece.team) possibilities.push(squares[foward(square)][square.columnIndex + 1]);
+        // Can capture if there is an enemy piece on the diagonals
+        const diagonalLeftPiece = squares[foward(square)][square.columnIndex - 1] ? squares[foward(square)][square.columnIndex - 1].piece : null;
+        if (diagonalLeftPiece && diagonalLeftPiece.team != square.piece.team) possibilities.push(squares[foward(square)][square.columnIndex - 1]);
+        const diagonalRightPiece = squares[foward(square)][square.columnIndex + 1] ? squares[foward(square)][square.columnIndex + 1].piece : null;
+        if (diagonalRightPiece && diagonalRightPiece.team != square.piece.team) possibilities.push(squares[foward(square)][square.columnIndex + 1]);
 
-      // Can only walk foward if the next square is not occupied
-      if (!squares[foward(square)][square.columnIndex].piece) possibilities.push(squares[foward(square)][square.columnIndex]);
-      return possibilities;
+        // Can only walk foward if the next square is not occupied
+        if (!squares[foward(square)][square.columnIndex].piece) possibilities.push(squares[foward(square)][square.columnIndex]);
+        return possibilities;
+      }
+
+      if (type == "captures") {
+        // Can capture if there is an square on the diagonals
+        const diagonalLeftSquare = squares[foward(square)][square.columnIndex - 1] ? squares[foward(square)][square.columnIndex - 1] : null;
+        if (diagonalLeftSquare) possibilities.push(squares[foward(square)][square.columnIndex - 1]);
+        const diagonalRightSquare = squares[foward(square)][square.columnIndex + 1] ? squares[foward(square)][square.columnIndex + 1] : null;
+        if (diagonalRightSquare) possibilities.push(squares[foward(square)][square.columnIndex + 1]);
+        return possibilities;
+      }
     }
 
     if (square.piece.name == "knight") {
       // Can walk into any direction in an L if there is not a piece of his own
-      return lshape(square).filter((s) => !s.piece || s.piece.team != square.piece?.team);
+      if (type == "moves") return lshape(square).filter((s) => !s.piece || s.piece.team != square.piece?.team);
+      // Can walk into any direction in an L if there is not a piece of his own
+      if (type == "captures") return lshape(square);
     }
 
     if (square.piece.name == "bishop") {
-      // Can walk into many squares in any of the four diagonal, stops the diagonal in case there is a piece there
       const possibilities: Square[] = [];
-      diagonals(square).forEach((ps) => {
-        for (let i = 0; i < ps.length; i++) {
-          const p = ps[i];
-          if (p.piece && p.piece.team == square.piece?.team) break;
-          if (p.piece && p.piece.team != square.piece?.team) {
+      if (type == "moves") {
+        // Can walk into many squares in any of the four diagonal, stops the diagonal in case there is a piece there
+        diagonals(square).forEach((ps) => {
+          for (let i = 0; i < ps.length; i++) {
+            const p = ps[i];
+            if (p.piece && p.piece.team == square.piece?.team) break;
+            if (p.piece && p.piece.team != square.piece?.team) {
+              possibilities.push(p);
+              break;
+            }
             possibilities.push(p);
-            break;
           }
-          possibilities.push(p);
-        }
-      });
-      return possibilities;
+        });
+        return possibilities;
+      }
+      if (type == "captures") {
+        // Can walk into many squares in any of the four diagonal, stops the diagonal in case there is a piece there
+        diagonals(square).forEach((ps) => {
+          for (let i = 0; i < ps.length; i++) {
+            const p = ps[i];
+            if (p.piece) {
+              possibilities.push(p);
+              if (p.piece && p.piece.team == square.piece?.team) break;
+              if (p.piece && p.piece.team != square.piece?.team && p.piece.name != "king") break;
+            }
+            possibilities.push(p);
+          }
+        });
+        return possibilities;
+      }
     }
 
     if (square.piece.name == "rook") {
       // Can walk into many squares in any of the four straight lines, stops the line in case there is a piece there
       const possibilities: Square[] = [];
-      lines(square).forEach((ps) => {
-        for (let i = 0; i < ps.length; i++) {
-          const p = ps[i];
-          if (p.piece && p.piece.team == square.piece?.team) break;
-          if (p.piece && p.piece.team != square.piece?.team) {
+      if (type == "moves") {
+        lines(square).forEach((ps) => {
+          for (let i = 0; i < ps.length; i++) {
+            const p = ps[i];
+            if (p.piece && p.piece.team == square.piece?.team) break;
+            if (p.piece && p.piece.team != square.piece?.team) {
+              possibilities.push(p);
+              break;
+            }
             possibilities.push(p);
-            break;
           }
-          possibilities.push(p);
-        }
-      });
-      return possibilities;
+        });
+        return possibilities;
+      }
+      if (type == "captures") {
+        lines(square).forEach((ps) => {
+          for (let i = 0; i < ps.length; i++) {
+            const p = ps[i];
+            if (p.piece) {
+              possibilities.push(p);
+              if (p.piece && p.piece.team == square.piece?.team) break;
+              if (p.piece && p.piece.team != square.piece?.team && p.piece.name != "king") break;
+            }
+            possibilities.push(p);
+          }
+        });
+        return possibilities;
+      }
     }
 
     if (square.piece.name == "queen") {
       // Bishop + Rook
       const possibilities: Square[] = [];
-      lines(square).forEach((ps) => {
-        for (let i = 0; i < ps.length; i++) {
-          const p = ps[i];
-          if (p.piece && p.piece.team == square.piece?.team) break;
-          if (p.piece && p.piece.team != square.piece?.team) {
+      if (type == "moves") {
+        lines(square).forEach((ps) => {
+          for (let i = 0; i < ps.length; i++) {
+            const p = ps[i];
+            if (p.piece && p.piece.team == square.piece?.team) break;
+            if (p.piece && p.piece.team != square.piece?.team) {
+              possibilities.push(p);
+              break;
+            }
             possibilities.push(p);
-            break;
           }
-          possibilities.push(p);
-        }
-      });
-      diagonals(square).forEach((ps) => {
-        for (let i = 0; i < ps.length; i++) {
-          const p = ps[i];
-          if (p.piece && p.piece.team == square.piece?.team) break;
-          if (p.piece && p.piece.team != square.piece?.team) {
+        });
+        diagonals(square).forEach((ps) => {
+          for (let i = 0; i < ps.length; i++) {
+            const p = ps[i];
+            if (p.piece && p.piece.team == square.piece?.team) break;
+            if (p.piece && p.piece.team != square.piece?.team) {
+              possibilities.push(p);
+              break;
+            }
             possibilities.push(p);
-            break;
           }
-          possibilities.push(p);
-        }
-      });
-      return possibilities;
+        });
+        return possibilities;
+      }
+      if (type == "captures") {
+        lines(square).forEach((ps) => {
+          for (let i = 0; i < ps.length; i++) {
+            const p = ps[i];
+            if (p.piece) {
+              possibilities.push(p);
+              if (p.piece && p.piece.team == square.piece?.team) break;
+              if (p.piece && p.piece.team != square.piece?.team && p.piece.name != "king") break;
+            }
+            possibilities.push(p);
+          }
+        });
+        diagonals(square).forEach((ps) => {
+          for (let i = 0; i < ps.length; i++) {
+            const p = ps[i];
+            if (p.piece) {
+              possibilities.push(p);
+              if (p.piece && p.piece.team == square.piece?.team) break;
+              if (p.piece && p.piece.team != square.piece?.team && p.piece.name != "king") break;
+            }
+            possibilities.push(p);
+          }
+        });
+        return possibilities;
+      }
     }
 
     if (square.piece.name == "king") {
       // Can walk into the neighbors squares in case there is no ally piece
       const possibilities: Square[] = [];
-      neighbors(square).forEach((s) => {
-        if (s.piece && s.piece.team == square.piece?.team) return;
-        if (s.piece && s.piece.team != square.piece?.team) {
+      if (type == "moves") {
+        neighbors(square).forEach((s) => {
+          const team = square.piece?.team;
+          if (!team) return;
+          if (s.piece && s.piece.team == square.piece?.team) return;
+          if (targetingSquares[["dark", "bright"].findIndex((t) => t == team)].includes(s)) return;
+          if (s.piece && s.piece.team != square.piece?.team) {
+            possibilities.push(s);
+            return;
+          }
           possibilities.push(s);
-          return;
-        }
-        possibilities.push(s);
-      });
-      return possibilities;
+        });
+        return possibilities;
+      }
+      if (type == "captures") {
+        neighbors(square).forEach((s) => {
+          possibilities.push(s);
+        });
+        return possibilities;
+      }
     }
 
     return [];
@@ -308,28 +393,27 @@ export default function useChess() {
 
   const targetingSquares = useMemo(() => {
     const teams: TeamType[] = ["bright", "dark"];
-    const pieces: Square[][] = [];
     const targets: Square[][] = [];
 
     teams.forEach((team, i) => {
-      pieces.push([]);
+      targets.push([]);
       squares.forEach((row) => {
         const squareRowsWithPieces = row.filter((s) => s.piece);
         if (squareRowsWithPieces.length === 0) return;
         const squareRowsWithRightTeamPieces = squareRowsWithPieces.filter((s) => s.piece?.team === team);
         if (squareRowsWithRightTeamPieces.length === 0) return;
         squareRowsWithRightTeamPieces.forEach((square) => {
-          pieces[i].push(square);
-          console.log("Hello");
+          const possibilities = calculatePossible("captures", square);
+          possibilities.forEach((p) => {
+            targets[i].push(p);
+          });
         });
       });
     });
 
-    console.log(pieces);
-
     return targets;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [squares]);
-  console.log(targetingSquares);
 
   // Function responsible for when the player is setting a new selection for his piece (only chosing, not moving)
   const newSelection = (clickedSquare: Square) => {
@@ -342,7 +426,7 @@ export default function useChess() {
     updateSquare(clickedSquare, { ...clickedSquare, selected: !clickedSquare.selected });
 
     // Calculates and shows the player what squares that piece can move to
-    const possibilities = calculatePossibleMoves(clickedSquare);
+    const possibilities = calculatePossible("moves", clickedSquare);
     setPossibilities(possibilities);
   };
 
@@ -398,6 +482,13 @@ export default function useChess() {
     // If the player is trying to move the piece to a piece of his own, unselect it and select the new one
     if (square.piece && square.piece.team == selectedSquare.piece.team) return newSelection(square);
 
+    // If the player is trying to move the piece to a place it can't, unselect
+    if (!possiblesSquares.map((p) => p.id).includes(square.id)) {
+      clearSelection();
+      clearPossibilities();
+      return;
+    }
+
     return newMove(square);
   };
 
@@ -447,6 +538,25 @@ function generateSquares() {
         jsx: <King team={coordinates[1] == "1" ? "bright" : "dark"} />,
       };
 
+    // if (coordinates == "d4")
+    //   return {
+    //     name: "king",
+    //     team: "bright",
+    //     jsx: <King team={"bright"} />,
+    //   };
+    // if (coordinates == "e4")
+    //   return {
+    //     name: "pawn",
+    //     team: "dark",
+    //     jsx: <Pawn team={"dark"} />,
+    //   };
+    // if (coordinates == "f4")
+    //   return {
+    //     name: "rook",
+    //     team: "dark",
+    //     jsx: <Rook team={"dark"} />,
+    //   };
+
     return null;
   }
 
@@ -459,6 +569,7 @@ function generateSquares() {
         piece: generatePieceOrNothing(column + row),
         selected: false,
         possibility: false,
+        treat: false,
         row: row,
         column: column,
         rowIndex: key,
