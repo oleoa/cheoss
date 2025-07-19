@@ -10,17 +10,23 @@ import type { ReactElement } from "react";
 
 type PieceName = "pawn" | "rook" | "bishop" | "knight" | "queen" | "king";
 type TeamType = "bright" | "dark";
+type RowType = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
+type ColumnType = "a" | "b" | "c" | "d" | "e" | "f" | "g" | "h";
 
 export interface Square {
   id: string;
   color: TeamType;
   piece: {
     name: PieceName;
-    team: string;
+    team: TeamType;
     jsx: ReactElement | null;
   } | null;
   selected: boolean;
   possibility: boolean;
+  row: RowType;
+  rowIndex: number;
+  column: ColumnType;
+  columnIndex: number;
 }
 
 export default function useChess() {
@@ -47,6 +53,25 @@ export default function useChess() {
   };
 
   const [possiblesSquares, setPossibleSquares] = useState<Square[]>([]);
+  const setPossibility = (square: Square) => {
+    setPossibleSquares((prevPossibilities) => [square, ...prevPossibilities]);
+    updateSquare(square, { ...square, possibility: true });
+  };
+  const calculatePossibleMoves = (square: Square) => {
+    if (!square || !square.piece) return;
+
+    if (square.piece.name == "pawn") {
+      if (square.piece.team == "bright") {
+        if (square.row == 2) setPossibility(squares[square.rowIndex - 2][square.columnIndex]);
+        setPossibility(squares[square.rowIndex - 1][square.columnIndex]);
+      }
+      if (square.piece.team == "dark") {
+        if (square.row == 7) setPossibility(squares[square.rowIndex + 2][square.columnIndex]);
+        setPossibility(squares[square.rowIndex + 1][square.columnIndex]);
+      }
+    }
+    return [];
+  };
   const clearPossibilities = () => {
     possiblesSquares.forEach((possibleSquare) => {
       updateSquare(possibleSquare, { ...possibleSquare, possibility: false });
@@ -70,15 +95,7 @@ export default function useChess() {
     updateSquare(clickedSquare, { ...clickedSquare, selected: !clickedSquare.selected });
 
     // Calculates and shows the player what squares that piece can move to
-    const selectedPieceType = clickedSquare.piece.name;
-    const squaresItCanMoveTo = pieceCanMoveToSquares(selectedPieceType, clickedSquare.id);
-    console.log(squaresItCanMoveTo);
-    squaresItCanMoveTo.forEach((coordinate) => {
-      const possibleSquare = getSquareByCoordinates(coordinate, squares);
-      if (!possibleSquare) return;
-      setPossibleSquares((prev) => [...prev, possibleSquare]);
-      updateSquare(possibleSquare, { ...possibleSquare, possibility: true });
-    });
+    calculatePossibleMoves(clickedSquare);
   };
 
   // Function responsible for when the player is trying to move his piece to a new square (not selection, only moving an already selected piece)
@@ -86,8 +103,7 @@ export default function useChess() {
     if (!selectedSquare || !selectedSquare.piece) return;
 
     // Checks if the piece can move there
-    // const selectedPieceType = (selectedSquare.piece as React.ReactElement<PiecesProps>).props.type;
-    // console.log(pieceCanMoveToSquares(selectedPieceType, selectedSquare.id));
+    if (!possiblesSquares.map((c) => c.id).includes(movingSquare.id)) return;
 
     // Removes the piece from the old square and unselect it
     updateSquare(selectedSquare, { ...selectedSquare, selected: false, piece: null });
@@ -108,8 +124,6 @@ export default function useChess() {
   const click = (square: Square) => {
     // If it's the first time the player is trying to select
     if (selectedSquare === null) {
-      //
-
       // If the player is trying to select a square with no pieces, do nothing
       if (!square.piece) return;
 
@@ -143,11 +157,11 @@ export default function useChess() {
 }
 
 function generateSquares() {
-  const rows = [8, 7, 6, 5, 4, 3, 2, 1];
-  const columns = ["a", "b", "c", "d", "e", "f", "g", "h"];
+  const rows: RowType[] = [8, 7, 6, 5, 4, 3, 2, 1];
+  const columns: ColumnType[] = ["a", "b", "c", "d", "e", "f", "g", "h"];
   const squares: Square[][] = [];
 
-  function generatePieceOrNothing(coordinates: string): { name: PieceName; team: string; jsx: ReactElement } | null {
+  function generatePieceOrNothing(coordinates: string): { name: PieceName; team: TeamType; jsx: ReactElement } | null {
     if (coordinates[1] == "2" || coordinates[1] == "7")
       return {
         name: "pawn",
@@ -196,24 +210,12 @@ function generateSquares() {
         piece: generatePieceOrNothing(column + row),
         selected: false,
         possibility: false,
+        row: row,
+        column: column,
+        rowIndex: key,
+        columnIndex: u,
       });
     });
   });
   return squares;
-}
-
-function getSquareByCoordinates(coordinates: string, squares: Square[][]): Square | null {
-  let square: Square | null = null;
-  squares.forEach((row: Square[]) => {
-    const found = row.find((s: Square) => s.id == coordinates);
-    if (found) return (square = found);
-  });
-  return square;
-}
-
-function pieceCanMoveToSquares(piece: PieceName, position: string): string[] {
-  if (piece == "pawn") {
-    return [position[0] + (Number(position[1]) + 1), position[0] + (Number(position[1]) + 2)];
-  }
-  return [];
 }
