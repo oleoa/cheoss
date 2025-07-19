@@ -5,6 +5,13 @@ export interface Square {
   color: "bright" | "dark";
   piece: null | ReactElement;
   selected: boolean;
+  possibility: boolean;
+}
+
+type PieceType = "pawn" | "rook" | "bishop" | "knight" | "queen" | "king";
+export interface PiecesProps {
+  type: PieceType;
+  team: "bright" | "dark";
 }
 
 import Pawn from "./components/pieces/Pawn";
@@ -26,6 +33,7 @@ export function generateSquares() {
         color: (u - key) % 2 == 0 ? "bright" : "dark",
         piece: piece(column + row),
         selected: false,
+        possibility: false,
       });
     });
   });
@@ -33,16 +41,28 @@ export function generateSquares() {
 }
 
 function piece(coordinates: string) {
-  if (coordinates[1] == "2" || coordinates[1] == "7") return <Pawn team={coordinates[1] == "2" ? "bright" : "dark"} />;
+  if (coordinates[1] == "2" || coordinates[1] == "7")
+    return <Pawn team={coordinates[1] == "2" ? "bright" : "dark"} type="pawn" />;
   if (coordinates == "a1" || coordinates == "h1" || coordinates == "a8" || coordinates == "h8")
-    return <Rook team={coordinates[1] == "1" ? "bright" : "dark"} />;
+    return <Rook team={coordinates[1] == "1" ? "bright" : "dark"} type="rook" />;
   if (coordinates == "b1" || coordinates == "g1" || coordinates == "b8" || coordinates == "g8")
-    return <Knight team={coordinates[1] == "1" ? "bright" : "dark"} />;
+    return <Knight team={coordinates[1] == "1" ? "bright" : "dark"} type="knight" />;
   if (coordinates == "c1" || coordinates == "f1" || coordinates == "c8" || coordinates == "f8")
-    return <Bishop team={coordinates[1] == "1" ? "bright" : "dark"} />;
-  if (coordinates == "d1" || coordinates == "d8") return <Queen team={coordinates[1] == "1" ? "bright" : "dark"} />;
-  if (coordinates == "e1" || coordinates == "e8") return <King team={coordinates[1] == "1" ? "bright" : "dark"} />;
+    return <Bishop team={coordinates[1] == "1" ? "bright" : "dark"} type="bishop" />;
+  if (coordinates == "d1" || coordinates == "d8")
+    return <Queen team={coordinates[1] == "1" ? "bright" : "dark"} type="queen" />;
+  if (coordinates == "e1" || coordinates == "e8")
+    return <King team={coordinates[1] == "1" ? "bright" : "dark"} type="king" />;
   return null;
+}
+
+export function getSquareByCoordinates(coordinates: string, squares: Square[][]): Square | null {
+  let square: Square | null = null;
+  squares.forEach((row: Square[]) => {
+    const found = row.find((s: Square) => s.id == coordinates);
+    if (found) return (square = found);
+  });
+  return square;
 }
 
 export function updateSquare(square: Square, setSquares: SetSquaresType, newSquare: Square) {
@@ -61,4 +81,11 @@ export function updateSquare(square: Square, setSquares: SetSquaresType, newSqua
 
 export function color(team: "bright" | "dark") {
   return team == "bright" ? "rgb(100,100,255)" : "rgb(158,181,158)";
+}
+
+export function pieceCanMoveToSquares(piece: PieceType, position: string): string[] {
+  if (piece == "pawn") {
+    return [position[0] + (Number(position[1]) + 1), position[0] + (Number(position[1]) + 2)];
+  }
+  return [];
 }
