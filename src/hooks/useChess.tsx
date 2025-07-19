@@ -184,6 +184,18 @@ export default function useChess() {
       return [t, b, r, l].filter((c) => c);
     };
 
+    const neighbors = (square: Square): Square[] => {
+      const tl = squares[top(square)]?.[left(square)] ?? null;
+      const tc = squares[top(square)]?.[square.columnIndex] ?? null;
+      const tr = squares[top(square)]?.[right(square)] ?? null;
+      const cr = squares[square.rowIndex]?.[right(square)] ?? null;
+      const cl = squares[square.rowIndex]?.[left(square)] ?? null;
+      const bl = squares[bottom(square)]?.[left(square)] ?? null;
+      const bc = squares[bottom(square)]?.[square.columnIndex] ?? null;
+      const br = squares[bottom(square)]?.[right(square)] ?? null;
+      return [tl, tc, tr, cr, cl, bl, bc, br].filter((c) => c);
+    };
+
     if (square.piece.name == "pawn") {
       // Can only walks 2 ahead in case is in the first row and there is nothing blocking it
       if (
@@ -271,6 +283,20 @@ export default function useChess() {
           }
           setPossibility(p);
         }
+      });
+
+      return;
+    }
+
+    if (square.piece.name == "king") {
+      // Can walk into the neighbors squares in case there is no ally piece
+      neighbors(square).forEach((s) => {
+        if (s.piece && s.piece.team == square.piece?.team) return;
+        if (s.piece && s.piece.team != square.piece?.team) {
+          setPossibility(s);
+          return;
+        }
+        setPossibility(s);
       });
 
       return;
