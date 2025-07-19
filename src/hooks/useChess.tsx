@@ -35,11 +35,7 @@ export default function useChess() {
     setSquares((oldSquares) =>
       oldSquares.map((row, r) =>
         r == 8 - Number(currentSquare.id[1])
-          ? row.map((val, c) =>
-              c === ["a", "b", "c", "d", "e", "f", "g", "h"].findIndex((column) => column == currentSquare.id[0])
-                ? newSquare
-                : val
-            )
+          ? row.map((val, c) => (c === ["a", "b", "c", "d", "e", "f", "g", "h"].findIndex((column) => column == currentSquare.id[0]) ? newSquare : val))
           : row
       )
     );
@@ -60,16 +56,35 @@ export default function useChess() {
   const calculatePossibleMoves = (square: Square) => {
     if (!square || !square.piece) return;
 
+    const foward = (square: Square) => {
+      if (!square.piece) return -1;
+      return square.piece.team == "bright" ? square.rowIndex - 1 : square.rowIndex + 1;
+    };
+
+    const twicefoward = (square: Square) => {
+      if (!square.piece) return -1;
+      return square.piece.team == "bright" ? square.rowIndex - 2 : square.rowIndex + 2;
+    };
+
     if (square.piece.name == "pawn") {
-      if (square.piece.team == "bright") {
-        if (square.row == 2) setPossibility(squares[square.rowIndex - 2][square.columnIndex]);
-        setPossibility(squares[square.rowIndex - 1][square.columnIndex]);
-      }
-      if (square.piece.team == "dark") {
-        if (square.row == 7) setPossibility(squares[square.rowIndex + 2][square.columnIndex]);
-        setPossibility(squares[square.rowIndex + 1][square.columnIndex]);
-      }
+      // Can only walks 2 ahead in case is in the first row and there is nothing blocking it
+      if (
+        (square.piece.team == "bright" ? square.row == 2 : square.row == 7) &&
+        !squares[foward(square)][square.columnIndex].piece &&
+        !squares[twicefoward(square)][square.columnIndex].piece
+      )
+        setPossibility(squares[twicefoward(square)][square.columnIndex]);
+
+      // Can capture if there is an enemy piece on the diagonals
+      const diagonalLeftPiece = squares[foward(square)][square.columnIndex - 1] ? squares[foward(square)][square.columnIndex - 1].piece : null;
+      if (diagonalLeftPiece && diagonalLeftPiece.team != square.piece.team) setPossibility(squares[foward(square)][square.columnIndex - 1]);
+      const diagonalRightPiece = squares[foward(square)][square.columnIndex + 1] ? squares[foward(square)][square.columnIndex + 1].piece : null;
+      if (diagonalRightPiece && diagonalRightPiece.team != square.piece.team) setPossibility(squares[foward(square)][square.columnIndex + 1]);
+
+      // Can only walk foward if the next square is not occupied
+      if (!squares[foward(square)][square.columnIndex].piece) setPossibility(squares[foward(square)][square.columnIndex]);
     }
+
     return [];
   };
   const clearPossibilities = () => {
