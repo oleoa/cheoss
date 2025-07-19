@@ -248,6 +248,34 @@ export default function useChess() {
       return;
     }
 
+    if (square.piece.name == "queen") {
+      // Bishop + Rook
+      lines(square).forEach((ps) => {
+        for (let i = 0; i < ps.length; i++) {
+          const p = ps[i];
+          if (p.piece && p.piece.team == square.piece?.team) break;
+          if (p.piece && p.piece.team != square.piece?.team) {
+            setPossibility(p);
+            break;
+          }
+          setPossibility(p);
+        }
+      });
+      diagonals(square).forEach((ps) => {
+        for (let i = 0; i < ps.length; i++) {
+          const p = ps[i];
+          if (p.piece && p.piece.team == square.piece?.team) break;
+          if (p.piece && p.piece.team != square.piece?.team) {
+            setPossibility(p);
+            break;
+          }
+          setPossibility(p);
+        }
+      });
+
+      return;
+    }
+
     return [];
   };
   const clearPossibilities = () => {
