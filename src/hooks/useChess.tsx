@@ -56,14 +56,9 @@ export default function useChess() {
   const calculatePossibleMoves = (square: Square) => {
     if (!square || !square.piece) return;
 
-    const foward = (square: Square): number => {
+    const foward = (square: Square, rows: number = 1): number => {
       if (!square.piece) return -1;
-      return square.piece.team == "bright" ? square.rowIndex - 1 : square.rowIndex + 1;
-    };
-
-    const backward = (square: Square): number => {
-      if (!square.piece) return -1;
-      return square.piece.team == "bright" ? square.rowIndex + 1 : square.rowIndex - 1;
+      return square.piece.team == "bright" ? square.rowIndex - rows : square.rowIndex + rows;
     };
 
     const top = (square: Square, rows: number = 1): number => {
@@ -86,25 +81,15 @@ export default function useChess() {
       return square.columnIndex - columns;
     };
 
-    const twicefoward = (square: Square): number => {
-      if (!square.piece) return -1;
-      return square.piece.team == "bright" ? square.rowIndex - 2 : square.rowIndex + 2;
-    };
-
-    const twicebackwards = (square: Square): number => {
-      if (!square.piece) return -1;
-      return square.piece.team == "bright" ? square.rowIndex + 2 : square.rowIndex - 2;
-    };
-
     const lshape = (square: Square): Square[] => {
-      const tl = squares[twicefoward(square)]?.[right(square)] ?? null;
-      const tr = squares[twicefoward(square)]?.[left(square)] ?? null;
-      const bl = squares[twicebackwards(square)]?.[right(square)] ?? null;
-      const br = squares[twicebackwards(square)]?.[left(square)] ?? null;
-      const rt = squares[foward(square)]?.[square.columnIndex - 2] ?? null;
-      const rb = squares[backward(square)]?.[square.columnIndex - 2] ?? null;
-      const lt = squares[foward(square)]?.[square.columnIndex + 2] ?? null;
-      const lb = squares[backward(square)]?.[square.columnIndex + 2] ?? null;
+      const tl = squares[top(square, 2)]?.[right(square)] ?? null;
+      const tr = squares[top(square, 2)]?.[left(square)] ?? null;
+      const bl = squares[bottom(square, 2)]?.[right(square)] ?? null;
+      const br = squares[bottom(square, 2)]?.[left(square)] ?? null;
+      const rt = squares[top(square)]?.[square.columnIndex - 2] ?? null;
+      const rb = squares[bottom(square)]?.[square.columnIndex - 2] ?? null;
+      const lt = squares[top(square)]?.[square.columnIndex + 2] ?? null;
+      const lb = squares[bottom(square)]?.[square.columnIndex + 2] ?? null;
       return [tl, tr, bl, br, lt, rt, lb, rb].filter((c) => c);
     };
 
@@ -201,9 +186,9 @@ export default function useChess() {
       if (
         (square.piece.team == "bright" ? square.row == 2 : square.row == 7) &&
         !squares[foward(square)][square.columnIndex].piece &&
-        !squares[twicefoward(square)][square.columnIndex].piece
+        !squares[foward(square, 2)][square.columnIndex].piece
       )
-        setPossibility(squares[twicefoward(square)][square.columnIndex]);
+        setPossibility(squares[foward(square, 2)][square.columnIndex]);
 
       // Can capture if there is an enemy piece on the diagonals
       const diagonalLeftPiece = squares[foward(square)][square.columnIndex - 1] ? squares[foward(square)][square.columnIndex - 1].piece : null;
