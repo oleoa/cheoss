@@ -56,14 +56,36 @@ export default function useChess() {
   const calculatePossibleMoves = (square: Square) => {
     if (!square || !square.piece) return;
 
-    const foward = (square: Square) => {
+    const foward = (square: Square): number => {
       if (!square.piece) return -1;
       return square.piece.team == "bright" ? square.rowIndex - 1 : square.rowIndex + 1;
     };
 
-    const twicefoward = (square: Square) => {
+    const backward = (square: Square): number => {
+      if (!square.piece) return -1;
+      return square.piece.team == "bright" ? square.rowIndex + 1 : square.rowIndex - 1;
+    };
+
+    const twicefoward = (square: Square): number => {
       if (!square.piece) return -1;
       return square.piece.team == "bright" ? square.rowIndex - 2 : square.rowIndex + 2;
+    };
+
+    const twicebackwards = (square: Square): number => {
+      if (!square.piece) return -1;
+      return square.piece.team == "bright" ? square.rowIndex + 2 : square.rowIndex - 2;
+    };
+
+    const lshape = (square: Square): Square[] => {
+      const tl = squares[twicefoward(square)]?.[square.columnIndex + 1] ?? null;
+      const tr = squares[twicefoward(square)]?.[square.columnIndex - 1] ?? null;
+      const bl = squares[twicebackwards(square)]?.[square.columnIndex + 1] ?? null;
+      const br = squares[twicebackwards(square)]?.[square.columnIndex - 1] ?? null;
+      const rt = squares[foward(square)]?.[square.columnIndex - 2] ?? null;
+      const rb = squares[backward(square)]?.[square.columnIndex - 2] ?? null;
+      const lt = squares[foward(square)]?.[square.columnIndex + 2] ?? null;
+      const lb = squares[backward(square)]?.[square.columnIndex + 2] ?? null;
+      return [tl, tr, bl, br, lt, rt, lb, rb].filter((c) => c);
     };
 
     if (square.piece.name == "pawn") {
@@ -83,6 +105,17 @@ export default function useChess() {
 
       // Can only walk foward if the next square is not occupied
       if (!squares[foward(square)][square.columnIndex].piece) setPossibility(squares[foward(square)][square.columnIndex]);
+
+      return;
+    }
+
+    if (square.piece.name == "knight") {
+      // Can walk into any direction in an L if there is not a piece of his own
+      lshape(square).forEach((s) => {
+        if (!s.piece || s.piece.team != square.piece?.team) setPossibility(s);
+      });
+
+      return;
     }
 
     return [];
