@@ -1,43 +1,12 @@
-import Pawn from "./../components/pieces/Pawn";
-import Rook from "./../components/pieces/Rook";
-import Knight from "./../components/pieces/Knight";
-import Bishop from "./../components/pieces/Bishop";
-import Queen from "./../components/pieces/Queen";
-import King from "./../components/pieces/King";
-
-import { useMemo, useState } from "react";
-import type { ReactElement } from "react";
-
-type PieceName = "pawn" | "rook" | "bishop" | "knight" | "queen" | "king";
-export type TeamType = "bright" | "dark";
-type RowType = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
-type ColumnType = "a" | "b" | "c" | "d" | "e" | "f" | "g" | "h";
-
-export interface Square {
-  id: string;
-  color: TeamType;
-  piece: {
-    name: PieceName;
-    team: TeamType;
-    jsx: ReactElement | null;
-  } | null;
-  selected: boolean;
-  possibility: boolean;
-  treat: boolean;
-  row: RowType;
-  rowIndex: number;
-  column: ColumnType;
-  columnIndex: number;
-}
+import { useState } from "react";
+import type { TeamType, Square } from "../interfaces";
+import usePieces from "./usePieces";
 
 export default function useChess() {
+  const { generateSquares, calculatePiecePossibleMoves } = usePieces();
+
   const [squares, setSquares] = useState(generateSquares);
   const updateSquare = (currentSquare: Square, newSquare: Square) => {
-    const newSquares = squares.map((row, r) =>
-      r == 8 - Number(currentSquare.id[1])
-        ? row.map((val, c) => (c === ["a", "b", "c", "d", "e", "f", "g", "h"].findIndex((column) => column == currentSquare.id[0]) ? newSquare : val))
-        : row
-    );
     setSquares((oldSquares) =>
       oldSquares.map((row, r) =>
         r == 8 - Number(currentSquare.id[1])
@@ -45,7 +14,6 @@ export default function useChess() {
           : row
       )
     );
-    return newSquares;
   };
 
   const [selectedSquare, setSelectedSquare] = useState<Square | null>(null);
@@ -55,333 +23,28 @@ export default function useChess() {
     setSelectedSquare(null);
   };
 
+  // const checkIfItsInCheck = (): boolean[] => {
+  //   const teams: TeamType[] = ["bright", "dark"];
+  //   const checks: boolean[] = [];
+  //   teams.forEach((team, i) => {
+  //     const myKingSquare = squares.map((row) => row.find((s) => s.piece && s.piece.name == "king" && s.piece.team == team)).filter((u) => u)[0] ?? null;
+  //     if (!myKingSquare) return;
+  //     checks.push(targetingSquares[i == 0 ? 1 : 0].includes(myKingSquare));
+  //   });
+  //   return checks;
+  // };
+
   const [possiblesSquares, setPossibleSquares] = useState<Square[]>([]);
   const setPossibility = (square: Square) => {
     setPossibleSquares((prevPossibilities) => [square, ...prevPossibilities]);
-    updateSquare(square, { ...square, possibility: true });
+    updateSquare(square, { ...square, possibility: playingTeam });
   };
   const setPossibilities = (possibilities: Square[]) => {
     possibilities.forEach((p) => setPossibility(p));
   };
-  const calculatePossible = (type: "moves" | "captures", square: Square): Square[] => {
-    if (!square || !square.piece) return [];
-
-    const foward = (square: Square, rows: number = 1): number => {
-      if (!square.piece) return -1;
-      return square.piece.team == "bright" ? square.rowIndex - rows : square.rowIndex + rows;
-    };
-
-    const top = (square: Square, rows: number = 1): number => {
-      if (!square.piece) return -1;
-      return square.rowIndex - rows;
-    };
-
-    const bottom = (square: Square, rows: number = 1): number => {
-      if (!square.piece) return -1;
-      return square.rowIndex + rows;
-    };
-
-    const right = (square: Square, columns: number = 1): number => {
-      if (!square.piece) return -1;
-      return square.columnIndex + columns;
-    };
-
-    const left = (square: Square, columns: number = 1): number => {
-      if (!square.piece) return -1;
-      return square.columnIndex - columns;
-    };
-
-    const lshape = (square: Square): Square[] => {
-      const tl = squares[top(square, 2)]?.[right(square)] ?? null;
-      const tr = squares[top(square, 2)]?.[left(square)] ?? null;
-      const bl = squares[bottom(square, 2)]?.[right(square)] ?? null;
-      const br = squares[bottom(square, 2)]?.[left(square)] ?? null;
-      const rt = squares[top(square)]?.[square.columnIndex - 2] ?? null;
-      const rb = squares[bottom(square)]?.[square.columnIndex - 2] ?? null;
-      const lt = squares[top(square)]?.[square.columnIndex + 2] ?? null;
-      const lb = squares[bottom(square)]?.[square.columnIndex + 2] ?? null;
-      return [tl, tr, bl, br, lt, rt, lb, rb].filter((c) => c);
-    };
-
-    const diagonals = (square: Square): Square[][] => {
-      const dtr: Square[] = [];
-      const dtl: Square[] = [];
-      const dbr: Square[] = [];
-      const dbl: Square[] = [];
-
-      let counter = 1;
-      for (let i = square.rowIndex - 1; i >= 0; i--) {
-        if (!squares[top(square, counter)][right(square, counter)]) break;
-        dtr.push(squares[top(square, counter)][right(square, counter)]);
-        counter++;
-      }
-      counter = 1;
-
-      for (let i = square.rowIndex - 1; i >= 0; i--) {
-        if (!squares[top(square, counter)][left(square, counter)]) break;
-        dtl.push(squares[top(square, counter)][left(square, counter)]);
-        counter++;
-      }
-      counter = 1;
-
-      for (let i = square.rowIndex + 1; i <= 7; i++) {
-        if (!squares[bottom(square, counter)][right(square, counter)]) break;
-        dbr.push(squares[bottom(square, counter)][right(square, counter)]);
-        counter++;
-      }
-      counter = 1;
-
-      for (let i = square.rowIndex + 1; i <= 7; i++) {
-        if (!squares[bottom(square, counter)][left(square, counter)]) break;
-        dbl.push(squares[bottom(square, counter)][left(square, counter)]);
-        counter++;
-      }
-      counter = 1;
-
-      return [dtr, dtl, dbr, dbl].filter((c) => c);
-    };
-
-    const lines = (square: Square): Square[][] => {
-      const t: Square[] = [];
-      const b: Square[] = [];
-      const r: Square[] = [];
-      const l: Square[] = [];
-
-      let counter = 1;
-      for (let i = square.rowIndex - 1; i >= 0; i--) {
-        if (!squares[top(square, counter)][square.columnIndex]) break;
-        t.push(squares[top(square, counter)][square.columnIndex]);
-        counter++;
-      }
-      counter = 1;
-
-      for (let i = square.rowIndex + 1; i <= 7; i++) {
-        if (!squares[bottom(square, counter)][square.columnIndex]) break;
-        b.push(squares[bottom(square, counter)][square.columnIndex]);
-        counter++;
-      }
-      counter = 1;
-
-      for (let i = square.columnIndex + 1; i <= 7; i++) {
-        if (!squares[square.rowIndex][right(square, counter)]) break;
-        r.push(squares[square.rowIndex][right(square, counter)]);
-        counter++;
-      }
-      counter = 1;
-
-      for (let i = square.columnIndex - 1; i >= 0; i--) {
-        if (!squares[square.rowIndex][left(square, counter)]) break;
-        l.push(squares[square.rowIndex][left(square, counter)]);
-        counter++;
-      }
-      counter = 1;
-
-      return [t, b, r, l].filter((c) => c);
-    };
-
-    const neighbors = (square: Square): Square[] => {
-      const tl = squares[top(square)]?.[left(square)] ?? null;
-      const tc = squares[top(square)]?.[square.columnIndex] ?? null;
-      const tr = squares[top(square)]?.[right(square)] ?? null;
-      const cr = squares[square.rowIndex]?.[right(square)] ?? null;
-      const cl = squares[square.rowIndex]?.[left(square)] ?? null;
-      const bl = squares[bottom(square)]?.[left(square)] ?? null;
-      const bc = squares[bottom(square)]?.[square.columnIndex] ?? null;
-      const br = squares[bottom(square)]?.[right(square)] ?? null;
-      return [tl, tc, tr, cr, cl, bl, bc, br].filter((c) => c);
-    };
-
-    if (square.piece.name == "pawn") {
-      const possibilities: Square[] = [];
-      if (type == "moves") {
-        // Can only walks 2 ahead in case is in the first row and there is nothing blocking it
-        if (
-          (square.piece.team == "bright" ? square.row == 2 : square.row == 7) &&
-          !squares[foward(square)][square.columnIndex].piece &&
-          !squares[foward(square, 2)][square.columnIndex].piece
-        )
-          possibilities.push(squares[foward(square, 2)][square.columnIndex]);
-
-        // Can capture if there is an enemy piece on the diagonals
-        const diagonalLeftPiece = squares[foward(square)][square.columnIndex - 1] ? squares[foward(square)][square.columnIndex - 1].piece : null;
-        if (diagonalLeftPiece && diagonalLeftPiece.team != square.piece.team) possibilities.push(squares[foward(square)][square.columnIndex - 1]);
-        const diagonalRightPiece = squares[foward(square)][square.columnIndex + 1] ? squares[foward(square)][square.columnIndex + 1].piece : null;
-        if (diagonalRightPiece && diagonalRightPiece.team != square.piece.team) possibilities.push(squares[foward(square)][square.columnIndex + 1]);
-
-        // Can only walk foward if the next square is not occupied
-        if (!squares[foward(square)][square.columnIndex].piece) possibilities.push(squares[foward(square)][square.columnIndex]);
-        return possibilities;
-      }
-
-      if (type == "captures") {
-        // Can capture if there is an square on the diagonals
-        const diagonalLeftSquare = squares[foward(square)][square.columnIndex - 1] ? squares[foward(square)][square.columnIndex - 1] : null;
-        if (diagonalLeftSquare) possibilities.push(squares[foward(square)][square.columnIndex - 1]);
-        const diagonalRightSquare = squares[foward(square)][square.columnIndex + 1] ? squares[foward(square)][square.columnIndex + 1] : null;
-        if (diagonalRightSquare) possibilities.push(squares[foward(square)][square.columnIndex + 1]);
-        return possibilities;
-      }
-    }
-
-    if (square.piece.name == "knight") {
-      // Can walk into any direction in an L if there is not a piece of his own
-      if (type == "moves") return lshape(square).filter((s) => !s.piece || s.piece.team != square.piece?.team);
-      // Can walk into any direction in an L if there is not a piece of his own
-      if (type == "captures") return lshape(square);
-    }
-
-    if (square.piece.name == "bishop") {
-      const possibilities: Square[] = [];
-      if (type == "moves") {
-        // Can walk into many squares in any of the four diagonal, stops the diagonal in case there is a piece there
-        diagonals(square).forEach((ps) => {
-          for (let i = 0; i < ps.length; i++) {
-            const p = ps[i];
-            if (p.piece && p.piece.team == square.piece?.team) break;
-            if (p.piece && p.piece.team != square.piece?.team) {
-              possibilities.push(p);
-              break;
-            }
-            possibilities.push(p);
-          }
-        });
-        return possibilities;
-      }
-      if (type == "captures") {
-        // Can walk into many squares in any of the four diagonal, stops the diagonal in case there is a piece there
-        diagonals(square).forEach((ps) => {
-          for (let i = 0; i < ps.length; i++) {
-            const p = ps[i];
-            if (p.piece) {
-              possibilities.push(p);
-              if (p.piece && p.piece.team == square.piece?.team) break;
-              if (p.piece && p.piece.team != square.piece?.team && p.piece.name != "king") break;
-            }
-            possibilities.push(p);
-          }
-        });
-        return possibilities;
-      }
-    }
-
-    if (square.piece.name == "rook") {
-      // Can walk into many squares in any of the four straight lines, stops the line in case there is a piece there
-      const possibilities: Square[] = [];
-      if (type == "moves") {
-        lines(square).forEach((ps) => {
-          for (let i = 0; i < ps.length; i++) {
-            const p = ps[i];
-            if (p.piece && p.piece.team == square.piece?.team) break;
-            if (p.piece && p.piece.team != square.piece?.team) {
-              possibilities.push(p);
-              break;
-            }
-            possibilities.push(p);
-          }
-        });
-        return possibilities;
-      }
-      if (type == "captures") {
-        lines(square).forEach((ps) => {
-          for (let i = 0; i < ps.length; i++) {
-            const p = ps[i];
-            if (p.piece) {
-              possibilities.push(p);
-              if (p.piece && p.piece.team == square.piece?.team) break;
-              if (p.piece && p.piece.team != square.piece?.team && p.piece.name != "king") break;
-            }
-            possibilities.push(p);
-          }
-        });
-        return possibilities;
-      }
-    }
-
-    if (square.piece.name == "queen") {
-      // Bishop + Rook
-      const possibilities: Square[] = [];
-      if (type == "moves") {
-        lines(square).forEach((ps) => {
-          for (let i = 0; i < ps.length; i++) {
-            const p = ps[i];
-            if (p.piece && p.piece.team == square.piece?.team) break;
-            if (p.piece && p.piece.team != square.piece?.team) {
-              possibilities.push(p);
-              break;
-            }
-            possibilities.push(p);
-          }
-        });
-        diagonals(square).forEach((ps) => {
-          for (let i = 0; i < ps.length; i++) {
-            const p = ps[i];
-            if (p.piece && p.piece.team == square.piece?.team) break;
-            if (p.piece && p.piece.team != square.piece?.team) {
-              possibilities.push(p);
-              break;
-            }
-            possibilities.push(p);
-          }
-        });
-        return possibilities;
-      }
-      if (type == "captures") {
-        lines(square).forEach((ps) => {
-          for (let i = 0; i < ps.length; i++) {
-            const p = ps[i];
-            if (p.piece) {
-              possibilities.push(p);
-              if (p.piece && p.piece.team == square.piece?.team) break;
-              if (p.piece && p.piece.team != square.piece?.team && p.piece.name != "king") break;
-            }
-            possibilities.push(p);
-          }
-        });
-        diagonals(square).forEach((ps) => {
-          for (let i = 0; i < ps.length; i++) {
-            const p = ps[i];
-            if (p.piece) {
-              possibilities.push(p);
-              if (p.piece && p.piece.team == square.piece?.team) break;
-              if (p.piece && p.piece.team != square.piece?.team && p.piece.name != "king") break;
-            }
-            possibilities.push(p);
-          }
-        });
-        return possibilities;
-      }
-    }
-
-    if (square.piece.name == "king") {
-      // Can walk into the neighbors squares in case there is no ally piece
-      const possibilities: Square[] = [];
-      if (type == "moves") {
-        neighbors(square).forEach((s) => {
-          const team = square.piece?.team;
-          if (!team) return;
-          if (s.piece && s.piece.team == square.piece?.team) return;
-          if (targetingSquares[["dark", "bright"].findIndex((t) => t == team)].includes(s)) return;
-          if (s.piece && s.piece.team != square.piece?.team) {
-            possibilities.push(s);
-            return;
-          }
-          possibilities.push(s);
-        });
-        return possibilities;
-      }
-      if (type == "captures") {
-        neighbors(square).forEach((s) => {
-          possibilities.push(s);
-        });
-        return possibilities;
-      }
-    }
-
-    return [];
-  };
   const clearPossibilities = () => {
     possiblesSquares.forEach((possibleSquare) => {
-      updateSquare(possibleSquare, { ...possibleSquare, possibility: false });
+      updateSquare(possibleSquare, { ...possibleSquare, possibility: null });
     });
     setPossibleSquares([]);
   };
@@ -391,29 +54,28 @@ export default function useChess() {
     setPlayingTeam((prevTeam) => (prevTeam == "bright" ? "dark" : "bright"));
   };
 
-  const targetingSquares = useMemo(() => {
-    const teams: TeamType[] = ["bright", "dark"];
-    const targets: Square[][] = [];
+  // const targetingSquares = useMemo(() => {
+  //   const teams: TeamType[] = ["bright", "dark"];
+  //   const targets: Square[][] = [];
 
-    teams.forEach((team, i) => {
-      targets.push([]);
-      squares.forEach((row) => {
-        const squareRowsWithPieces = row.filter((s) => s.piece);
-        if (squareRowsWithPieces.length === 0) return;
-        const squareRowsWithRightTeamPieces = squareRowsWithPieces.filter((s) => s.piece?.team === team);
-        if (squareRowsWithRightTeamPieces.length === 0) return;
-        squareRowsWithRightTeamPieces.forEach((square) => {
-          const possibilities = calculatePossible("captures", square);
-          possibilities.forEach((p) => {
-            targets[i].push(p);
-          });
-        });
-      });
-    });
+  //   teams.forEach((team, i) => {
+  //     targets.push([]);
+  //     squares.forEach((row) => {
+  //       const squareRowsWithPieces = row.filter((s) => s.piece);
+  //       if (squareRowsWithPieces.length === 0) return;
+  //       const squareRowsWithRightTeamPieces = squareRowsWithPieces.filter((s) => s.piece?.team === team);
+  //       if (squareRowsWithRightTeamPieces.length === 0) return;
+  //       squareRowsWithRightTeamPieces.forEach((square) => {
+  //         const possibilities = calculatePossible("captures", square);
+  //         possibilities.forEach((p) => {
+  //           targets[i].push(p);
+  //         });
+  //       });
+  //     });
+  //   });
 
-    return targets;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [squares]);
+  //   return targets;
+  // }, [squares]);
 
   // Function responsible for when the player is setting a new selection for his piece (only chosing, not moving)
   const newSelection = (clickedSquare: Square) => {
@@ -423,10 +85,10 @@ export default function useChess() {
 
     // Select the new square
     setSelectedSquare(clickedSquare);
-    updateSquare(clickedSquare, { ...clickedSquare, selected: !clickedSquare.selected });
+    updateSquare(clickedSquare, { ...clickedSquare, selected: true });
 
     // Calculates and shows the player what squares that piece can move to
-    const possibilities = calculatePossible("moves", clickedSquare);
+    const possibilities = calculatePiecePossibleMoves(clickedSquare, squares);
     setPossibilities(possibilities);
   };
 
@@ -437,6 +99,8 @@ export default function useChess() {
     // Checks if the piece can move there
     if (!possiblesSquares.map((c) => c.id).includes(movingSquare.id)) return;
 
+    // Checks if the movement wouldn't create an undescovered check against himself
+
     // Removes the piece from the old square and unselect it
     updateSquare(selectedSquare, { ...selectedSquare, selected: false, piece: null });
 
@@ -444,7 +108,7 @@ export default function useChess() {
     clearPossibilities();
 
     // Move the piece to the new square
-    updateSquare(movingSquare, { ...movingSquare, piece: selectedSquare.piece, possibility: false });
+    updateSquare(movingSquare, { ...movingSquare, piece: selectedSquare.piece, possibility: null });
 
     // Unselect the square
     setSelectedSquare(null);
@@ -493,89 +157,4 @@ export default function useChess() {
   };
 
   return { squares, click };
-}
-
-function generateSquares() {
-  const rows: RowType[] = [8, 7, 6, 5, 4, 3, 2, 1];
-  const columns: ColumnType[] = ["a", "b", "c", "d", "e", "f", "g", "h"];
-  const squares: Square[][] = [];
-
-  function generatePieceOrNothing(coordinates: string): { name: PieceName; team: TeamType; jsx: ReactElement } | null {
-    if (coordinates[1] == "2" || coordinates[1] == "7")
-      return {
-        name: "pawn",
-        team: coordinates[1] == "2" ? "bright" : "dark",
-        jsx: <Pawn team={coordinates[1] == "2" ? "bright" : "dark"} />,
-      };
-    if (coordinates == "a1" || coordinates == "h1" || coordinates == "a8" || coordinates == "h8")
-      return {
-        name: "rook",
-        team: coordinates[1] == "1" ? "bright" : "dark",
-        jsx: <Rook team={coordinates[1] == "1" ? "bright" : "dark"} />,
-      };
-    if (coordinates == "b1" || coordinates == "g1" || coordinates == "b8" || coordinates == "g8")
-      return {
-        name: "knight",
-        team: coordinates[1] == "1" ? "bright" : "dark",
-        jsx: <Knight team={coordinates[1] == "1" ? "bright" : "dark"} />,
-      };
-    if (coordinates == "c1" || coordinates == "f1" || coordinates == "c8" || coordinates == "f8")
-      return {
-        name: "bishop",
-        team: coordinates[1] == "1" ? "bright" : "dark",
-        jsx: <Bishop team={coordinates[1] == "1" ? "bright" : "dark"} />,
-      };
-    if (coordinates == "d1" || coordinates == "d8")
-      return {
-        name: "queen",
-        team: coordinates[1] == "1" ? "bright" : "dark",
-        jsx: <Queen team={coordinates[1] == "1" ? "bright" : "dark"} />,
-      };
-    if (coordinates == "e1" || coordinates == "e8")
-      return {
-        name: "king",
-        team: coordinates[1] == "1" ? "bright" : "dark",
-        jsx: <King team={coordinates[1] == "1" ? "bright" : "dark"} />,
-      };
-
-    // if (coordinates == "d4")
-    //   return {
-    //     name: "king",
-    //     team: "bright",
-    //     jsx: <King team={"bright"} />,
-    //   };
-    // if (coordinates == "e4")
-    //   return {
-    //     name: "pawn",
-    //     team: "dark",
-    //     jsx: <Pawn team={"dark"} />,
-    //   };
-    // if (coordinates == "f4")
-    //   return {
-    //     name: "rook",
-    //     team: "dark",
-    //     jsx: <Rook team={"dark"} />,
-    //   };
-
-    return null;
-  }
-
-  rows.forEach((row, key) => {
-    squares.push([]);
-    columns.forEach((column, u) => {
-      squares[key].push({
-        id: column + row,
-        color: (u - key) % 2 == 0 ? "bright" : "dark",
-        piece: generatePieceOrNothing(column + row),
-        selected: false,
-        possibility: false,
-        treat: false,
-        row: row,
-        column: column,
-        rowIndex: key,
-        columnIndex: u,
-      });
-    });
-  });
-  return squares;
 }

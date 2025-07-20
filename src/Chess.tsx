@@ -3,6 +3,5 @@ import Board from "./components/Board";
 
 export default function Chess() {
   const { squares, click } = useChess();
-
   return <Board squares={squares} click={click} />;
 }
