@@ -8,11 +8,10 @@ export default function useChess() {
   const [squares, setSquares] = useState(generateSquares);
   const updateSquare = (currentSquare: Square, newSquare: Square) => {
     setSquares((oldSquares) =>
-      oldSquares.map((row, r) =>
-        r == 8 - Number(currentSquare.id[1])
-          ? row.map((val, c) => (c === ["a", "b", "c", "d", "e", "f", "g", "h"].findIndex((column) => column == currentSquare.id[0]) ? newSquare : val))
-          : row
-      )
+      oldSquares.map((square) => {
+        if (square.id != currentSquare.id) return square;
+        return newSquare;
+      })
     );
   };
 
@@ -22,17 +21,6 @@ export default function useChess() {
     updateSquare(selectedSquare, { ...selectedSquare, selected: false });
     setSelectedSquare(null);
   };
-
-  // const checkIfItsInCheck = (): boolean[] => {
-  //   const teams: TeamType[] = ["bright", "dark"];
-  //   const checks: boolean[] = [];
-  //   teams.forEach((team, i) => {
-  //     const myKingSquare = squares.map((row) => row.find((s) => s.piece && s.piece.name == "king" && s.piece.team == team)).filter((u) => u)[0] ?? null;
-  //     if (!myKingSquare) return;
-  //     checks.push(targetingSquares[i == 0 ? 1 : 0].includes(myKingSquare));
-  //   });
-  //   return checks;
-  // };
 
   const [possiblesSquares, setPossibleSquares] = useState<Square[]>([]);
   const setPossibility = (square: Square) => {
@@ -53,29 +41,6 @@ export default function useChess() {
   const switchTeams = () => {
     setPlayingTeam((prevTeam) => (prevTeam == "bright" ? "dark" : "bright"));
   };
-
-  // const targetingSquares = useMemo(() => {
-  //   const teams: TeamType[] = ["bright", "dark"];
-  //   const targets: Square[][] = [];
-
-  //   teams.forEach((team, i) => {
-  //     targets.push([]);
-  //     squares.forEach((row) => {
-  //       const squareRowsWithPieces = row.filter((s) => s.piece);
-  //       if (squareRowsWithPieces.length === 0) return;
-  //       const squareRowsWithRightTeamPieces = squareRowsWithPieces.filter((s) => s.piece?.team === team);
-  //       if (squareRowsWithRightTeamPieces.length === 0) return;
-  //       squareRowsWithRightTeamPieces.forEach((square) => {
-  //         const possibilities = calculatePossible("captures", square);
-  //         possibilities.forEach((p) => {
-  //           targets[i].push(p);
-  //         });
-  //       });
-  //     });
-  //   });
-
-  //   return targets;
-  // }, [squares]);
 
   // Function responsible for when the player is setting a new selection for his piece (only chosing, not moving)
   const newSelection = (clickedSquare: Square) => {
@@ -98,8 +63,6 @@ export default function useChess() {
 
     // Checks if the piece can move there
     if (!possiblesSquares.map((c) => c.id).includes(movingSquare.id)) return;
-
-    // Checks if the movement wouldn't create an undescovered check against himself
 
     // Removes the piece from the old square and unselect it
     updateSquare(selectedSquare, { ...selectedSquare, selected: false, piece: null });

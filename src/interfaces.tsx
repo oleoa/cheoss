@@ -15,9 +15,6 @@ export interface Square {
   } | null;
   selected: boolean;
   possibility: TeamType | null;
-  treat: boolean;
   row: RowType;
-  rowIndex: number;
   column: ColumnType;
-  columnIndex: number;
 }
