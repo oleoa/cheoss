@@ -1,4 +1,4 @@
-import type { PieceName, TeamType } from "../hooks/useChess";
+import type { PieceName, TeamType } from "../interfaces";
 import { color } from "../helpers";
 
 export function Piece({ team, piece }: { team: TeamType; piece: PieceName }) {

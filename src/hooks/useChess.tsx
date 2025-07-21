@@ -1,6 +1,8 @@
 import { useState } from "react";
+import React from "react";
 import type { TeamType, Square, Move, Piece as PieceType } from "../interfaces";
 import usePieces from "./usePieces";
+import { Piece } from "../components/Piece";
 
 export default function useChess() {
   const { generateSquares, calculatePiecePossibleMoves } = usePieces();
@@ -73,6 +75,8 @@ export default function useChess() {
     const move = possiblesSquares.find((c) => c.move.id == movingSquare.id);
     if (!move) return;
 
+    console.log(move);
+
     // Check to see if it's an special move
     if (move.type == "castling" || move.type == "enpassant") {
       if (!move.special) return;
@@ -89,9 +93,6 @@ export default function useChess() {
         // Move the piece to the new square
         updateSquare(move.special.castling.king.to, { ...move.special.castling.king.to, piece: move.special.castling.king.from.piece });
         updateSquare(move.special.castling.rook.to, { ...move.special.castling.rook.to, piece: move.special.castling.rook.from.piece });
-
-        // If any move but enpassant, clears the move
-        cleardoubledfoward();
       }
       if (move.type == "enpassant") {
         if (!move.special.enpassant) return;
@@ -109,6 +110,23 @@ export default function useChess() {
         // Move the piece to the new square
         updateSquare(move.special.enpassant.moves.to, { ...move.special.enpassant.moves.to, piece: move.special.enpassant.moves.from.piece });
       }
+    } else if (move.type == "promoting") {
+      // Removes the piece from the old square and unselect it
+      updateSquare(selectedSquare, { ...selectedSquare, selected: false, piece: null });
+
+      // Clears out the possibilities
+      clearPossibilities();
+
+      // Updates the piece
+      const piece: PieceType = {
+        ...selectedSquare.piece,
+        moved: true,
+        name: "queen",
+        jsx: selectedSquare.piece.jsx ? React.createElement(Piece, { team: selectedSquare.piece.team, piece: "queen" }) : null,
+      };
+
+      // Move the piece to the new square
+      updateSquare(movingSquare, { ...movingSquare, piece: piece, possibility: null });
     } else if (move.type == "doublefoward") {
       // Removes the piece from the old square and unselect it
       updateSquare(selectedSquare, { ...selectedSquare, selected: false, piece: null });
@@ -126,9 +144,6 @@ export default function useChess() {
 
       // Move the piece to the new square
       updateSquare(movingSquare, newSquare);
-
-      // If any move but enpassant, clears the move
-      cleardoubledfoward();
     } else {
       // Removes the piece from the old square and unselect it
       updateSquare(selectedSquare, { ...selectedSquare, selected: false, piece: null });
@@ -141,13 +156,12 @@ export default function useChess() {
 
       // Move the piece to the new square
       updateSquare(movingSquare, { ...movingSquare, piece: piece, possibility: null });
-
-      // If any move but enpassant, clears the move
-      cleardoubledfoward();
     }
 
     // Unselect the square
     setSelectedSquare(null);
+
+    if (move.type != "enpassant") cleardoubledfoward();
 
     // Changes the playing team
     switchTeams();

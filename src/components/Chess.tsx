@@ -1,6 +1,7 @@
-import { type Square } from "../interfaces";
+import useChess from "../hooks/useChess";
 
-export default function Board({ squares, click }: { squares: Square[]; click: (square: Square) => void }) {
+export default function Chess() {
+  const { squares, click } = useChess();
   return (
     <div className="border-4">
       <div className="w-160 h-160 grid grid-cols-8 grid-rows-8">

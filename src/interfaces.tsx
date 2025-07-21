@@ -24,7 +24,7 @@ export interface Square {
 }
 
 export interface Move {
-  type: "normal" | "doublefoward" | "enpassant" | "castling";
+  type: "normal" | "doublefoward" | "enpassant" | "castling" | "promoting";
   move: Square;
   special?: {
     castling?: {

@@ -1,4 +1,4 @@
-import type { RowType, ColumnType, Square, Move, Piece as PieceType } from "../interfaces";
+import type { RowType, ColumnType, Square, Move, Piece as PieceType, TeamType } from "../interfaces";
 import { Piece } from "../components/Piece";
 
 const rows: RowType[] = [8, 7, 6, 5, 4, 3, 2, 1];
@@ -44,8 +44,10 @@ export default function usePieces() {
       }
 
       // Can capture if there is an enemy piece on the diagonals
-      if (leftCapture && leftCapture.piece && leftCapture.piece.team == oppositeTeam)
-        if (!wouldIBeInCheck(leftCapture)) possibilities.push({ type: "normal", move: leftCapture });
+      if (leftCapture && leftCapture.piece && leftCapture.piece.team == oppositeTeam) {
+        if (isLastRow(leftCapture, playingTeam)) possibilities.push({ type: "promoting", move: leftCapture });
+        else if (!wouldIBeInCheck(leftCapture)) possibilities.push({ type: "normal", move: leftCapture });
+      }
       if (rightCapture && rightCapture.piece && rightCapture.piece.team == oppositeTeam)
         if (!wouldIBeInCheck(rightCapture)) possibilities.push({ type: "normal", move: rightCapture });
 
@@ -238,47 +240,46 @@ export default function usePieces() {
     const squares: Square[] = [];
 
     function generatePieceOrNothing(coordinates: string): PieceType | null {
-      // if (coordinates[1] == "2" || coordinates[1] == "7")
-      //   return {
-      //     name: "pawn",
-      //     doubledfoward: false,
-      //     moved: false,
-      //     team: coordinates[1] == "2" ? "bright" : "dark",
-      //     jsx: <Piece piece="pawn" team={coordinates[1] == "2" ? "bright" : "dark"} />,
-      //   };
-      // if (coordinates == "a1" || coordinates == "h1" || coordinates == "a8" || coordinates == "h8")
-      //   return {
-      //     name: "rook",
-      //     doubledfoward: false,
-      //     moved: false,
-      //     team: coordinates[1] == "1" ? "bright" : "dark",
-      //     jsx: <Piece piece="rook" team={coordinates[1] == "1" ? "bright" : "dark"} />,
-      //   };
-      // if (coordinates == "b1" || coordinates == "g1" || coordinates == "b8" || coordinates == "g8")
-      //   return {
-      //     name: "knight",
-      //     doubledfoward: false,
-      //     moved: false,
-      //     team: coordinates[1] == "1" ? "bright" : "dark",
-      //     jsx: <Piece piece="knight" team={coordinates[1] == "1" ? "bright" : "dark"} />,
-      //   };
-      // if (coordinates == "c1" || coordinates == "f1" || coordinates == "c8" || coordinates == "f8")
-      //   return {
-      //     name: "bishop",
-      //     doubledfoward: false,
-      //     moved: false,
-      //     team: coordinates[1] == "1" ? "bright" : "dark",
-      //     jsx: <Piece piece="bishop" team={coordinates[1] == "1" ? "bright" : "dark"} />,
-      //   };
-      // if (coordinates == "d1" || coordinates == "d8")
-      //   return {
-      //     name: "queen",
-      //     doubledfoward: false,
-      //     moved: false,
-      //     team: coordinates[1] == "1" ? "bright" : "dark",
-      //     jsx: <Piece piece="queen" team={coordinates[1] == "1" ? "bright" : "dark"} />,
-      //   };
-
+      if (coordinates[1] == "2" || coordinates[1] == "7")
+        return {
+          name: "pawn",
+          doubledfoward: false,
+          moved: false,
+          team: coordinates[1] == "2" ? "bright" : "dark",
+          jsx: <Piece piece="pawn" team={coordinates[1] == "2" ? "bright" : "dark"} />,
+        };
+      if (coordinates == "a1" || coordinates == "h1" || coordinates == "a8" || coordinates == "h8")
+        return {
+          name: "rook",
+          doubledfoward: false,
+          moved: false,
+          team: coordinates[1] == "1" ? "bright" : "dark",
+          jsx: <Piece piece="rook" team={coordinates[1] == "1" ? "bright" : "dark"} />,
+        };
+      if (coordinates == "b1" || coordinates == "g1" || coordinates == "b8" || coordinates == "g8")
+        return {
+          name: "knight",
+          doubledfoward: false,
+          moved: false,
+          team: coordinates[1] == "1" ? "bright" : "dark",
+          jsx: <Piece piece="knight" team={coordinates[1] == "1" ? "bright" : "dark"} />,
+        };
+      if (coordinates == "c1" || coordinates == "f1" || coordinates == "c8" || coordinates == "f8")
+        return {
+          name: "bishop",
+          doubledfoward: false,
+          moved: false,
+          team: coordinates[1] == "1" ? "bright" : "dark",
+          jsx: <Piece piece="bishop" team={coordinates[1] == "1" ? "bright" : "dark"} />,
+        };
+      if (coordinates == "d1" || coordinates == "d8")
+        return {
+          name: "queen",
+          doubledfoward: false,
+          moved: false,
+          team: coordinates[1] == "1" ? "bright" : "dark",
+          jsx: <Piece piece="queen" team={coordinates[1] == "1" ? "bright" : "dark"} />,
+        };
       if (coordinates == "e1" || coordinates == "e8")
         return {
           name: "king",
@@ -288,39 +289,22 @@ export default function usePieces() {
           jsx: <Piece piece="king" team={coordinates[1] == "1" ? "bright" : "dark"} />,
         };
 
-      if (coordinates == "a2")
-        return {
-          name: "pawn",
-          doubledfoward: false,
-          moved: false,
-          team: "bright",
-          jsx: <Piece piece="pawn" team={"bright"} />,
-        };
-      if (coordinates == "b4")
-        return {
-          name: "pawn",
-          doubledfoward: false,
-          moved: false,
-          team: coordinates[1] == "1" ? "bright" : "dark",
-          jsx: <Piece piece="pawn" team={coordinates[1] == "1" ? "bright" : "dark"} />,
-        };
-
-      if (coordinates == "g5")
-        return {
-          name: "pawn",
-          doubledfoward: false,
-          moved: false,
-          team: "bright",
-          jsx: <Piece piece="pawn" team={"bright"} />,
-        };
-      if (coordinates == "h7")
-        return {
-          name: "pawn",
-          doubledfoward: false,
-          moved: false,
-          team: coordinates[1] == "1" ? "bright" : "dark",
-          jsx: <Piece piece="pawn" team={coordinates[1] == "1" ? "bright" : "dark"} />,
-        };
+      // if (coordinates == "a8")
+      //   return {
+      //     name: "bishop",
+      //     doubledfoward: false,
+      //     moved: false,
+      //     team: "dark",
+      //     jsx: <Piece piece="bishop" team={"dark"} />,
+      //   };
+      // if (coordinates == "b7")
+      //   return {
+      //     name: "pawn",
+      //     doubledfoward: false,
+      //     moved: false,
+      //     team: "bright",
+      //     jsx: <Piece piece="pawn" team={"bright"} />,
+      //   };
 
       return null;
     }
@@ -349,6 +333,10 @@ export default function usePieces() {
 // It returns the square in that direction
 function getSquareById(id: string, squares: Square[]): Square | null {
   return squares.filter((s) => s.id == id)[0] ?? null;
+}
+
+function isLastRow(square: Square, team: TeamType): boolean {
+  return team == "bright" ? square.row == 8 : square.row == 1;
 }
 
 function foward(square: Square | null, squares: Square[], times: number = 1): Square | null {
