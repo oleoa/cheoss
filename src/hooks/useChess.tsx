@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { TeamType, Square } from "../interfaces";
+import type { TeamType, Square, Move } from "../interfaces";
 import usePieces from "./usePieces";
 
 export default function useChess() {
@@ -22,17 +22,17 @@ export default function useChess() {
     setSelectedSquare(null);
   };
 
-  const [possiblesSquares, setPossibleSquares] = useState<Square[]>([]);
-  const setPossibility = (square: Square) => {
+  const [possiblesSquares, setPossibleSquares] = useState<Move[]>([]);
+  const setPossibility = (square: Move) => {
     setPossibleSquares((prevPossibilities) => [square, ...prevPossibilities]);
-    updateSquare(square, { ...square, possibility: playingTeam });
+    updateSquare(square.move, { ...square.move, possibility: playingTeam });
   };
-  const setPossibilities = (possibilities: Square[]) => {
+  const setPossibilities = (possibilities: Move[]) => {
     possibilities.forEach((p) => setPossibility(p));
   };
   const clearPossibilities = () => {
-    possiblesSquares.forEach((possibleSquare) => {
-      updateSquare(possibleSquare, { ...possibleSquare, possibility: null });
+    possiblesSquares.forEach((possibleSquare: Move) => {
+      updateSquare(possibleSquare.move, { ...possibleSquare.move, possibility: null });
     });
     setPossibleSquares([]);
   };
@@ -62,16 +62,40 @@ export default function useChess() {
     if (!selectedSquare || !selectedSquare.piece) return;
 
     // Checks if the piece can move there
-    if (!possiblesSquares.map((c) => c.id).includes(movingSquare.id)) return;
+    const move = possiblesSquares.find((c) => c.move.id == movingSquare.id);
+    if (!move) return;
 
-    // Removes the piece from the old square and unselect it
-    updateSquare(selectedSquare, { ...selectedSquare, selected: false, piece: null });
+    // Check to see if it's an special move
+    if (move.type == "castling" || move.type == "enpassant") {
+      if (!move.special) return;
+      if (move.type == "castling") {
+        if (!move.special.castling) return;
 
-    // Clears out the possibilities
-    clearPossibilities();
+        // Removes both the king and the rook from their positions
+        updateSquare(move.special.castling.king.from, { ...move.special.castling.king.from, selected: false, piece: null });
+        updateSquare(move.special.castling.rook.from, { ...move.special.castling.rook.from, selected: false, piece: null });
 
-    // Move the piece to the new square
-    updateSquare(movingSquare, { ...movingSquare, piece: selectedSquare.piece, possibility: null });
+        // Clears out the possibilities
+        clearPossibilities();
+
+        // Move the piece to the new square
+        updateSquare(move.special.castling.king.to, { ...move.special.castling.king.to, piece: move.special.castling.king.from.piece });
+        updateSquare(move.special.castling.rook.to, { ...move.special.castling.rook.to, piece: move.special.castling.rook.from.piece });
+      }
+      // if (move.type == "enpassant") {}
+    } else {
+      // Removes the piece from the old square and unselect it
+      updateSquare(selectedSquare, { ...selectedSquare, selected: false, piece: null });
+
+      // Clears out the possibilities
+      clearPossibilities();
+
+      // Updates the piece
+      const piece = { ...selectedSquare.piece, moved: true };
+
+      // Move the piece to the new square
+      updateSquare(movingSquare, { ...movingSquare, piece: piece, possibility: null });
+    }
 
     // Unselect the square
     setSelectedSquare(null);
@@ -110,7 +134,7 @@ export default function useChess() {
     if (square.piece && square.piece.team == selectedSquare.piece.team) return newSelection(square);
 
     // If the player is trying to move the piece to a place it can't, unselect
-    if (!possiblesSquares.map((p) => p.id).includes(square.id)) {
+    if (!possiblesSquares.map((p) => p.move.id).includes(square.id)) {
       clearSelection();
       clearPossibilities();
       return;

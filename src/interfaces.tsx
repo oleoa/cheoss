@@ -5,16 +5,41 @@ export type TeamType = "bright" | "dark";
 export type RowType = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
 export type ColumnType = "a" | "b" | "c" | "d" | "e" | "f" | "g" | "h";
 
+export interface Piece {
+  name: PieceName;
+  team: TeamType;
+  jsx: ReactElement | null;
+  moved: boolean;
+}
+
 export interface Square {
   id: string;
   color: TeamType;
-  piece: {
-    name: PieceName;
-    team: TeamType;
-    jsx: ReactElement | null;
-  } | null;
+  piece: Piece | null;
   selected: boolean;
   possibility: TeamType | null;
   row: RowType;
   column: ColumnType;
+}
+
+export interface Move {
+  type: "normal" | "enpassant" | "castling";
+  move: Square;
+  special?: {
+    castling?: {
+      king: {
+        from: Square;
+        through: Square;
+        to: Square;
+      };
+      rook: {
+        from: Square;
+        to: Square;
+      };
+    };
+    enpassant?: {
+      move: Square;
+      captures: Square;
+    };
+  };
 }

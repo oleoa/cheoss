@@ -1,5 +1,4 @@
-import type { RowType, ColumnType, Square, PieceName, TeamType } from "../interfaces";
-import type { ReactElement } from "react";
+import type { RowType, ColumnType, Square, Move, Piece as PieceType } from "../interfaces";
 import { Piece } from "../components/Piece";
 
 const rows: RowType[] = [8, 7, 6, 5, 4, 3, 2, 1];
@@ -10,10 +9,10 @@ export default function usePieces() {
   // It should calculate, for each piece, what squares it can move in to
   // It should take in consideration wheter or not it would put the king in check
   // That is, moving to a square under attack, undescovered check or not leaving from a check
-  const calculatePiecePossibleMoves = (square: Square, squares: Square[]): Square[] => {
+  const calculatePiecePossibleMoves = (square: Square, squares: Square[]): Move[] => {
     if (!square || !square.piece) return [];
 
-    const possibilities: Square[] = [];
+    const possibilities: Move[] = [];
     const playingTeam = square.piece.team;
     const oppositeTeam = ["bright", "dark"].filter((t) => t != playingTeam)[0];
 
@@ -41,15 +40,17 @@ export default function usePieces() {
 
       // Can only walks 2 ahead in case is in the first row and there is nothing blocking it
       if ((playingTeam == "bright" ? square.row == 2 : square.row == 7) && oneStepSquare && !oneStepSquare.piece && twoStepsSquare && !twoStepsSquare.piece) {
-        if (!wouldIBeInCheck(twoStepsSquare)) possibilities.push(twoStepsSquare);
+        if (!wouldIBeInCheck(twoStepsSquare)) possibilities.push({ type: "normal", move: twoStepsSquare });
       }
 
       // Can capture if there is an enemy piece on the diagonals
-      if (leftCapture && leftCapture.piece && leftCapture.piece.team == oppositeTeam) if (!wouldIBeInCheck(leftCapture)) possibilities.push(leftCapture);
-      if (rightCapture && rightCapture.piece && rightCapture.piece.team == oppositeTeam) if (!wouldIBeInCheck(rightCapture)) possibilities.push(rightCapture);
+      if (leftCapture && leftCapture.piece && leftCapture.piece.team == oppositeTeam)
+        if (!wouldIBeInCheck(leftCapture)) possibilities.push({ type: "normal", move: leftCapture });
+      if (rightCapture && rightCapture.piece && rightCapture.piece.team == oppositeTeam)
+        if (!wouldIBeInCheck(rightCapture)) possibilities.push({ type: "normal", move: rightCapture });
 
       // Can only walk foward if the next square is not occupied
-      if (oneStepSquare && !oneStepSquare.piece) if (!wouldIBeInCheck(oneStepSquare)) possibilities.push(oneStepSquare);
+      if (oneStepSquare && !oneStepSquare.piece) if (!wouldIBeInCheck(oneStepSquare)) possibilities.push({ type: "normal", move: oneStepSquare });
       return possibilities;
     }
 
@@ -57,7 +58,7 @@ export default function usePieces() {
       // Can walk into any direction in an L if there is not a piece of his own
       lshape(square, squares).forEach((position) => {
         if (position.piece && position.piece.team == playingTeam) return;
-        if (!wouldIBeInCheck(position)) possibilities.push(position);
+        if (!wouldIBeInCheck(position)) possibilities.push({ type: "normal", move: position });
       });
       return possibilities;
     }
@@ -69,10 +70,10 @@ export default function usePieces() {
           const square = direction[i];
           if (square.piece && square.piece.team == playingTeam) break;
           if (square.piece && square.piece.team == oppositeTeam) {
-            if (!wouldIBeInCheck(square)) possibilities.push(square);
+            if (!wouldIBeInCheck(square)) possibilities.push({ type: "normal", move: square });
             break;
           }
-          if (!wouldIBeInCheck(square)) possibilities.push(square);
+          if (!wouldIBeInCheck(square)) possibilities.push({ type: "normal", move: square });
         }
       });
 
@@ -86,10 +87,10 @@ export default function usePieces() {
           const square = direction[i];
           if (square.piece && square.piece.team == playingTeam) break;
           if (square.piece && square.piece.team == oppositeTeam) {
-            if (!wouldIBeInCheck(square)) possibilities.push(square);
+            if (!wouldIBeInCheck(square)) possibilities.push({ type: "normal", move: square });
             break;
           }
-          if (!wouldIBeInCheck(square)) possibilities.push(square);
+          if (!wouldIBeInCheck(square)) possibilities.push({ type: "normal", move: square });
         }
       });
 
@@ -103,10 +104,10 @@ export default function usePieces() {
           const square = direction[i];
           if (square.piece && square.piece.team == playingTeam) break;
           if (square.piece && square.piece.team == oppositeTeam) {
-            if (!wouldIBeInCheck(square)) possibilities.push(square);
+            if (!wouldIBeInCheck(square)) possibilities.push({ type: "normal", move: square });
             break;
           }
-          if (!wouldIBeInCheck(square)) possibilities.push(square);
+          if (!wouldIBeInCheck(square)) possibilities.push({ type: "normal", move: square });
         }
       });
       diagonals(square, squares).forEach((direction) => {
@@ -114,10 +115,10 @@ export default function usePieces() {
           const square = direction[i];
           if (square.piece && square.piece.team == playingTeam) break;
           if (square.piece && square.piece.team == oppositeTeam) {
-            if (!wouldIBeInCheck(square)) possibilities.push(square);
+            if (!wouldIBeInCheck(square)) possibilities.push({ type: "normal", move: square });
             break;
           }
-          if (!wouldIBeInCheck(square)) possibilities.push(square);
+          if (!wouldIBeInCheck(square)) possibilities.push({ type: "normal", move: square });
         }
       });
       return possibilities;
@@ -129,10 +130,16 @@ export default function usePieces() {
         if (possibleMove.piece && possibleMove.piece.team == playingTeam) return;
         if (wouldIBeInCheck(possibleMove)) return;
         if (possibleMove.piece && possibleMove.piece.team == oppositeTeam) {
-          possibilities.push(possibleMove);
+          possibilities.push({ type: "normal", move: possibleMove });
           return;
         }
-        possibilities.push(possibleMove);
+        possibilities.push({ type: "normal", move: possibleMove });
+      });
+
+      // Can castle
+      castling(square, squares).forEach((p) => {
+        if (!p.special || !p.special.castling) return;
+        if (!wouldIBeInCheck(p.special.castling.king.through) && !wouldIBeInCheck(p.special.castling.king.to)) possibilities.push(p);
       });
       return possibilities;
     }
@@ -224,42 +231,77 @@ export default function usePieces() {
   function generateSquares(): Square[] {
     const squares: Square[] = [];
 
-    function generatePieceOrNothing(coordinates: string): { name: PieceName; team: TeamType; jsx: ReactElement } | null {
-      if (coordinates[1] == "2" || coordinates[1] == "7")
+    function generatePieceOrNothing(coordinates: string): PieceType | null {
+      // if (coordinates[1] == "2" || coordinates[1] == "7")
+      //   return {
+      //     name: "pawn",
+      //     moved: false,
+      //     team: coordinates[1] == "2" ? "bright" : "dark",
+      //     jsx: <Piece piece="pawn" team={coordinates[1] == "2" ? "bright" : "dark"} />,
+      //   };
+      // if (coordinates == "a1" || coordinates == "h1" || coordinates == "a8" || coordinates == "h8")
+      //   return {
+      //     name: "rook",
+      //     moved: false,
+      //     team: coordinates[1] == "1" ? "bright" : "dark",
+      //     jsx: <Piece piece="rook" team={coordinates[1] == "1" ? "bright" : "dark"} />,
+      //   };
+      // if (coordinates == "b1" || coordinates == "g1" || coordinates == "b8" || coordinates == "g8")
+      //   return {
+      //     name: "knight",
+      //     moved: false,
+      //     team: coordinates[1] == "1" ? "bright" : "dark",
+      //     jsx: <Piece piece="knight" team={coordinates[1] == "1" ? "bright" : "dark"} />,
+      //   };
+      // if (coordinates == "c1" || coordinates == "f1" || coordinates == "c8" || coordinates == "f8")
+      //   return {
+      //     name: "bishop",
+      //     moved: false,
+      //     team: coordinates[1] == "1" ? "bright" : "dark",
+      //     jsx: <Piece piece="bishop" team={coordinates[1] == "1" ? "bright" : "dark"} />,
+      //   };
+      // if (coordinates == "d1" || coordinates == "d8")
+      //   return {
+      //     name: "queen",
+      //     moved: false,
+      //     team: coordinates[1] == "1" ? "bright" : "dark",
+      //     jsx: <Piece piece="queen" team={coordinates[1] == "1" ? "bright" : "dark"} />,
+      //   };
+      // if (coordinates == "e1" || coordinates == "e8")
+      //   return {
+      //     name: "king",
+      //     moved: false,
+      //     team: coordinates[1] == "1" ? "bright" : "dark",
+      //     jsx: <Piece piece="king" team={coordinates[1] == "1" ? "bright" : "dark"} />,
+      //   };
+
+      if (coordinates == "e1")
         return {
-          name: "pawn",
-          team: coordinates[1] == "2" ? "bright" : "dark",
-          jsx: <Piece piece="pawn" team={coordinates[1] == "2" ? "bright" : "dark"} />,
+          name: "king",
+          moved: false,
+          team: coordinates[1] == "1" ? "bright" : "dark",
+          jsx: <Piece piece="king" team={coordinates[1] == "1" ? "bright" : "dark"} />,
         };
-      if (coordinates == "a1" || coordinates == "h1" || coordinates == "a8" || coordinates == "h8")
+      if (coordinates == "h1")
         return {
           name: "rook",
+          moved: false,
           team: coordinates[1] == "1" ? "bright" : "dark",
           jsx: <Piece piece="rook" team={coordinates[1] == "1" ? "bright" : "dark"} />,
         };
-      if (coordinates == "b1" || coordinates == "g1" || coordinates == "b8" || coordinates == "g8")
+      if (coordinates == "a1")
         return {
-          name: "knight",
+          name: "rook",
+          moved: false,
           team: coordinates[1] == "1" ? "bright" : "dark",
-          jsx: <Piece piece="knight" team={coordinates[1] == "1" ? "bright" : "dark"} />,
+          jsx: <Piece piece="rook" team={coordinates[1] == "1" ? "bright" : "dark"} />,
         };
-      if (coordinates == "c1" || coordinates == "f1" || coordinates == "c8" || coordinates == "f8")
+      if (coordinates == "g4")
         return {
           name: "bishop",
-          team: coordinates[1] == "1" ? "bright" : "dark",
-          jsx: <Piece piece="bishop" team={coordinates[1] == "1" ? "bright" : "dark"} />,
-        };
-      if (coordinates == "d1" || coordinates == "d8")
-        return {
-          name: "queen",
-          team: coordinates[1] == "1" ? "bright" : "dark",
-          jsx: <Piece piece="queen" team={coordinates[1] == "1" ? "bright" : "dark"} />,
-        };
-      if (coordinates == "e1" || coordinates == "e8")
-        return {
-          name: "king",
-          team: coordinates[1] == "1" ? "bright" : "dark",
-          jsx: <Piece piece="king" team={coordinates[1] == "1" ? "bright" : "dark"} />,
+          moved: false,
+          team: "dark",
+          jsx: <Piece piece="bishop" team={"dark"} />,
         };
 
       return null;
@@ -454,4 +496,65 @@ function neighbors(square: Square, squares: Square[]): Square[] {
   const bc = bottom(square, squares);
   const br = bottom(right(square, squares), squares);
   return [tl, tc, tr, cr, cl, bl, bc, br].filter((c) => c != null);
+}
+
+function castling(square: Square, squares: Square[]): Move[] {
+  const possibilities: Move[] = [];
+
+  const myKing = square;
+  if (!myKing.piece || myKing.piece.name != "king" || myKing.piece.moved == true) return [];
+
+  const myRightRook = right(square, squares, 3);
+  const landingRightKingPosition = right(myKing, squares, 2);
+  const landingRightRookPosition = right(myKing, squares);
+  const rightSquarePassingThrough = right(square, squares);
+  if (
+    myRightRook &&
+    myRightRook.piece &&
+    myRightRook.piece.name == "rook" &&
+    myRightRook.piece.moved == false &&
+    rightSquarePassingThrough &&
+    landingRightKingPosition &&
+    !landingRightKingPosition.piece &&
+    landingRightRookPosition &&
+    !landingRightRookPosition.piece
+  )
+    possibilities.push({
+      type: "castling",
+      move: landingRightKingPosition,
+      special: {
+        castling: {
+          king: { from: myKing, through: rightSquarePassingThrough, to: landingRightKingPosition },
+          rook: { from: myRightRook, to: landingRightRookPosition },
+        },
+      },
+    });
+
+  const myLeftRook = left(square, squares, 4);
+  const landingLeftKingPosition = left(myKing, squares, 2);
+  const leftSquarePassingThrough = left(square, squares);
+  const landingLeftRookPosition = left(myKing, squares);
+  if (
+    myLeftRook &&
+    myLeftRook.piece &&
+    myLeftRook.piece.name == "rook" &&
+    myLeftRook.piece.moved == false &&
+    leftSquarePassingThrough &&
+    landingLeftKingPosition &&
+    !landingLeftKingPosition.piece &&
+    landingLeftRookPosition &&
+    !landingLeftRookPosition.piece
+  )
+    possibilities.push({
+      type: "castling",
+      move: landingLeftKingPosition,
+      special: {
+        castling: {
+          king: { from: myKing, through: leftSquarePassingThrough, to: landingLeftKingPosition },
+          rook: { from: myLeftRook, to: landingLeftRookPosition },
+        },
+      },
+    });
+
+  return possibilities;
 }
