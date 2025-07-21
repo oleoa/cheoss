@@ -1,11 +1,11 @@
 import { useState } from "react";
-import type { TeamType, Square, Move } from "../interfaces";
+import type { TeamType, Square, Move, Piece as PieceType } from "../interfaces";
 import usePieces from "./usePieces";
 
 export default function useChess() {
   const { generateSquares, calculatePiecePossibleMoves } = usePieces();
 
-  const [squares, setSquares] = useState(generateSquares);
+  const [squares, setSquares] = useState<Square[]>(generateSquares);
   const updateSquare = (currentSquare: Square, newSquare: Square) => {
     setSquares((oldSquares) =>
       oldSquares.map((square) => {
@@ -13,6 +13,14 @@ export default function useChess() {
         return newSquare;
       })
     );
+  };
+
+  const [doubledFoward, setDoubledFoward] = useState<Square | null>(null);
+  const cleardoubledfoward = () => {
+    if (!doubledFoward || !doubledFoward.piece) return;
+    const newPiece = { ...doubledFoward.piece, doubledfoward: false };
+    updateSquare(doubledFoward, { ...doubledFoward, piece: newPiece });
+    setDoubledFoward(null);
   };
 
   const [selectedSquare, setSelectedSquare] = useState<Square | null>(null);
@@ -81,8 +89,46 @@ export default function useChess() {
         // Move the piece to the new square
         updateSquare(move.special.castling.king.to, { ...move.special.castling.king.to, piece: move.special.castling.king.from.piece });
         updateSquare(move.special.castling.rook.to, { ...move.special.castling.rook.to, piece: move.special.castling.rook.from.piece });
+
+        // If any move but enpassant, clears the move
+        cleardoubledfoward();
       }
-      // if (move.type == "enpassant") {}
+      if (move.type == "enpassant") {
+        if (!move.special.enpassant) return;
+
+        // If enpassant, clears the old move before doing the changes
+        cleardoubledfoward();
+
+        // Removes the enpassant pawn
+        updateSquare(move.special.enpassant.captures, { ...move.special.enpassant.captures, piece: null });
+        updateSquare(move.special.enpassant.moves.from, { ...move.special.enpassant.moves.from, piece: null });
+
+        // Clears out the possibilities
+        clearPossibilities();
+
+        // Move the piece to the new square
+        updateSquare(move.special.enpassant.moves.to, { ...move.special.enpassant.moves.to, piece: move.special.enpassant.moves.from.piece });
+      }
+    } else if (move.type == "doublefoward") {
+      // Removes the piece from the old square and unselect it
+      updateSquare(selectedSquare, { ...selectedSquare, selected: false, piece: null });
+
+      // Clears out the possibilities
+      clearPossibilities();
+
+      // Updates the piece
+      const piece: PieceType = { ...selectedSquare.piece, moved: true, doubledfoward: true };
+
+      const newSquare: Square = { ...movingSquare, piece: piece, possibility: null };
+
+      // Alerts the game that that pawn doubled foward
+      setDoubledFoward(newSquare);
+
+      // Move the piece to the new square
+      updateSquare(movingSquare, newSquare);
+
+      // If any move but enpassant, clears the move
+      cleardoubledfoward();
     } else {
       // Removes the piece from the old square and unselect it
       updateSquare(selectedSquare, { ...selectedSquare, selected: false, piece: null });
@@ -95,6 +141,9 @@ export default function useChess() {
 
       // Move the piece to the new square
       updateSquare(movingSquare, { ...movingSquare, piece: piece, possibility: null });
+
+      // If any move but enpassant, clears the move
+      cleardoubledfoward();
     }
 
     // Unselect the square

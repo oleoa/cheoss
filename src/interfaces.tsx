@@ -10,6 +10,7 @@ export interface Piece {
   team: TeamType;
   jsx: ReactElement | null;
   moved: boolean;
+  doubledfoward: boolean;
 }
 
 export interface Square {
@@ -23,7 +24,7 @@ export interface Square {
 }
 
 export interface Move {
-  type: "normal" | "enpassant" | "castling";
+  type: "normal" | "doublefoward" | "enpassant" | "castling";
   move: Square;
   special?: {
     castling?: {
@@ -38,7 +39,10 @@ export interface Move {
       };
     };
     enpassant?: {
-      move: Square;
+      moves: {
+        from: Square;
+        to: Square;
+      };
       captures: Square;
     };
   };

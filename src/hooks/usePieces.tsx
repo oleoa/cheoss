@@ -40,7 +40,7 @@ export default function usePieces() {
 
       // Can only walks 2 ahead in case is in the first row and there is nothing blocking it
       if ((playingTeam == "bright" ? square.row == 2 : square.row == 7) && oneStepSquare && !oneStepSquare.piece && twoStepsSquare && !twoStepsSquare.piece) {
-        if (!wouldIBeInCheck(twoStepsSquare)) possibilities.push({ type: "normal", move: twoStepsSquare });
+        if (!wouldIBeInCheck(twoStepsSquare)) possibilities.push({ type: "doublefoward", move: twoStepsSquare });
       }
 
       // Can capture if there is an enemy piece on the diagonals
@@ -51,6 +51,12 @@ export default function usePieces() {
 
       // Can only walk foward if the next square is not occupied
       if (oneStepSquare && !oneStepSquare.piece) if (!wouldIBeInCheck(oneStepSquare)) possibilities.push({ type: "normal", move: oneStepSquare });
+
+      // En Passant
+      enpassant(square, squares).forEach((move) => {
+        possibilities.push(move);
+      });
+
       return possibilities;
     }
 
@@ -235,6 +241,7 @@ export default function usePieces() {
       // if (coordinates[1] == "2" || coordinates[1] == "7")
       //   return {
       //     name: "pawn",
+      //     doubledfoward: false,
       //     moved: false,
       //     team: coordinates[1] == "2" ? "bright" : "dark",
       //     jsx: <Piece piece="pawn" team={coordinates[1] == "2" ? "bright" : "dark"} />,
@@ -242,6 +249,7 @@ export default function usePieces() {
       // if (coordinates == "a1" || coordinates == "h1" || coordinates == "a8" || coordinates == "h8")
       //   return {
       //     name: "rook",
+      //     doubledfoward: false,
       //     moved: false,
       //     team: coordinates[1] == "1" ? "bright" : "dark",
       //     jsx: <Piece piece="rook" team={coordinates[1] == "1" ? "bright" : "dark"} />,
@@ -249,6 +257,7 @@ export default function usePieces() {
       // if (coordinates == "b1" || coordinates == "g1" || coordinates == "b8" || coordinates == "g8")
       //   return {
       //     name: "knight",
+      //     doubledfoward: false,
       //     moved: false,
       //     team: coordinates[1] == "1" ? "bright" : "dark",
       //     jsx: <Piece piece="knight" team={coordinates[1] == "1" ? "bright" : "dark"} />,
@@ -256,6 +265,7 @@ export default function usePieces() {
       // if (coordinates == "c1" || coordinates == "f1" || coordinates == "c8" || coordinates == "f8")
       //   return {
       //     name: "bishop",
+      //     doubledfoward: false,
       //     moved: false,
       //     team: coordinates[1] == "1" ? "bright" : "dark",
       //     jsx: <Piece piece="bishop" team={coordinates[1] == "1" ? "bright" : "dark"} />,
@@ -263,45 +273,53 @@ export default function usePieces() {
       // if (coordinates == "d1" || coordinates == "d8")
       //   return {
       //     name: "queen",
+      //     doubledfoward: false,
       //     moved: false,
       //     team: coordinates[1] == "1" ? "bright" : "dark",
       //     jsx: <Piece piece="queen" team={coordinates[1] == "1" ? "bright" : "dark"} />,
       //   };
-      // if (coordinates == "e1" || coordinates == "e8")
-      //   return {
-      //     name: "king",
-      //     moved: false,
-      //     team: coordinates[1] == "1" ? "bright" : "dark",
-      //     jsx: <Piece piece="king" team={coordinates[1] == "1" ? "bright" : "dark"} />,
-      //   };
 
-      if (coordinates == "e1")
+      if (coordinates == "e1" || coordinates == "e8")
         return {
           name: "king",
+          doubledfoward: false,
           moved: false,
           team: coordinates[1] == "1" ? "bright" : "dark",
           jsx: <Piece piece="king" team={coordinates[1] == "1" ? "bright" : "dark"} />,
         };
-      if (coordinates == "h1")
+
+      if (coordinates == "a2")
         return {
-          name: "rook",
+          name: "pawn",
+          doubledfoward: false,
+          moved: false,
+          team: "bright",
+          jsx: <Piece piece="pawn" team={"bright"} />,
+        };
+      if (coordinates == "b4")
+        return {
+          name: "pawn",
+          doubledfoward: false,
           moved: false,
           team: coordinates[1] == "1" ? "bright" : "dark",
-          jsx: <Piece piece="rook" team={coordinates[1] == "1" ? "bright" : "dark"} />,
+          jsx: <Piece piece="pawn" team={coordinates[1] == "1" ? "bright" : "dark"} />,
         };
-      if (coordinates == "a1")
+
+      if (coordinates == "g5")
         return {
-          name: "rook",
+          name: "pawn",
+          doubledfoward: false,
+          moved: false,
+          team: "bright",
+          jsx: <Piece piece="pawn" team={"bright"} />,
+        };
+      if (coordinates == "h7")
+        return {
+          name: "pawn",
+          doubledfoward: false,
           moved: false,
           team: coordinates[1] == "1" ? "bright" : "dark",
-          jsx: <Piece piece="rook" team={coordinates[1] == "1" ? "bright" : "dark"} />,
-        };
-      if (coordinates == "g4")
-        return {
-          name: "bishop",
-          moved: false,
-          team: "dark",
-          jsx: <Piece piece="bishop" team={"dark"} />,
+          jsx: <Piece piece="pawn" team={coordinates[1] == "1" ? "bright" : "dark"} />,
         };
 
       return null;
@@ -555,6 +573,57 @@ function castling(square: Square, squares: Square[]): Move[] {
         },
       },
     });
+
+  return possibilities;
+}
+
+function enpassant(square: Square, squares: Square[]): Move[] {
+  const possibilities: Move[] = [];
+
+  const myPawn = square;
+  if (!myPawn.piece || myPawn.piece.name != "pawn") return [];
+
+  const rightEnPassantPawn = right(myPawn, squares);
+  const movesToFowardRight = right(foward(myPawn, squares), squares);
+  if (
+    rightEnPassantPawn &&
+    rightEnPassantPawn.piece &&
+    rightEnPassantPawn.piece.name == "pawn" &&
+    rightEnPassantPawn.piece.doubledfoward &&
+    movesToFowardRight
+  ) {
+    possibilities.push({
+      type: "enpassant",
+      move: movesToFowardRight,
+      special: {
+        enpassant: {
+          moves: {
+            from: myPawn,
+            to: movesToFowardRight,
+          },
+          captures: rightEnPassantPawn,
+        },
+      },
+    });
+  }
+
+  const leftEnPassantPawn = left(myPawn, squares);
+  const movesToFowardLeft = left(foward(myPawn, squares), squares);
+  if (leftEnPassantPawn && leftEnPassantPawn.piece && leftEnPassantPawn.piece.name == "pawn" && leftEnPassantPawn.piece.doubledfoward && movesToFowardLeft) {
+    possibilities.push({
+      type: "enpassant",
+      move: movesToFowardLeft,
+      special: {
+        enpassant: {
+          moves: {
+            from: myPawn,
+            to: movesToFowardLeft,
+          },
+          captures: leftEnPassantPawn,
+        },
+      },
+    });
+  }
 
   return possibilities;
 }
