@@ -17,38 +17,21 @@ export default function usePieces() {
     const playingTeam = square.piece.team;
     const oppositeTeam = ["bright", "dark"].filter((t) => t != playingTeam)[0];
 
-    // Function will get a snapshot of the board for each possible move and will search
-    // for any checks against the team's king
-    // const checkIfItsInCheck = (squares: Square[][], team: TeamType): boolean[] => {
-    //   const targetingSquares: Square[] = [];
-
-    //   squares.forEach((row) => {
-    //     const enemyPiecesSquares = row.filter((s) => s.piece?.team == oppositeTeam);
-    //     console.log(enemyPiecesSquares);
-    //     return;
-    //     const squareRowsWithPieces = row.filter((s) => s.piece);
-    //     if (squareRowsWithPieces.length === 0) return;
-
-    //     const squareRowsWithEnemyTeamPieces = squareRowsWithPieces.filter((s) => s.piece?.team === team);
-    //     if (squareRowsWithEnemyTeamPieces.length === 0) return;
-
-    //     squareRowsWithRightTeamPieces.forEach((square) => {
-    //       const possibilities = calculatePossible("captures", square);
-    //       possibilities.forEach((p) => {
-    //         targetingSquares.push(p);
-    //       });
-    //     });
-    //   });
-    //   const teams: TeamType[] = ["bright", "dark"];
-    //   const checks: boolean[] = [];
-    //   teams.forEach((team) => {
-    //     const myKingSquare = squares.map((row) => row.find((s) => s.piece && s.piece.name == "king" && s.piece.team == team)).filter((u) => u)[0] ?? null;
-    //     if (!myKingSquare) return;
-    //     checks.push(targetingSquares.includes(myKingSquare));
-    //   });
-    //   return checks;
-    // };
-    // checkIfItsInCheck(squares, square.piece.team);
+    // It creates an snapshot of a possible game chess move and analyses if that position would let the playingking on check
+    const wouldIBeInCheck = (possibleMove: Square): boolean => {
+      const snapshot: Square[] = squares.map((originalSquare) => {
+        if (originalSquare.id == square.id) return { ...originalSquare, piece: null };
+        if (originalSquare.id != possibleMove.id) return originalSquare;
+        return { ...possibleMove, piece: square.piece };
+      });
+      const oppositeTeamPieces: Square[] = snapshot.filter((s) => s.piece && s.piece.team == oppositeTeam);
+      const myKing: Square = snapshot.filter((s) => s.piece && s.piece.team == playingTeam && s.piece.name == "king")[0];
+      const targetingSquares: Square[] = [];
+      oppositeTeamPieces.forEach((p) => {
+        calculatePiecePossibleAttacksAndDefenses(p, snapshot).forEach((t) => targetingSquares.push(t));
+      });
+      return targetingSquares.map((p) => p.id).includes(myKing.id);
+    };
 
     if (square.piece.name == "pawn") {
       const oneStepSquare = foward(square, squares);
@@ -57,21 +40,26 @@ export default function usePieces() {
       const rightCapture = right(oneStepSquare, squares);
 
       // Can only walks 2 ahead in case is in the first row and there is nothing blocking it
-      if ((playingTeam == "bright" ? square.row == 2 : square.row == 7) && oneStepSquare && !oneStepSquare.piece && twoStepsSquare && !twoStepsSquare.piece)
-        possibilities.push(twoStepsSquare);
+      if ((playingTeam == "bright" ? square.row == 2 : square.row == 7) && oneStepSquare && !oneStepSquare.piece && twoStepsSquare && !twoStepsSquare.piece) {
+        if (!wouldIBeInCheck(twoStepsSquare)) possibilities.push(twoStepsSquare);
+      }
 
       // Can capture if there is an enemy piece on the diagonals
-      if (leftCapture && leftCapture.piece && leftCapture.piece.team != playingTeam) possibilities.push(leftCapture);
-      if (rightCapture && rightCapture.piece && rightCapture.piece.team != playingTeam) possibilities.push(rightCapture);
+      if (leftCapture && leftCapture.piece && leftCapture.piece.team == oppositeTeam) if (!wouldIBeInCheck(leftCapture)) possibilities.push(leftCapture);
+      if (rightCapture && rightCapture.piece && rightCapture.piece.team == oppositeTeam) if (!wouldIBeInCheck(rightCapture)) possibilities.push(rightCapture);
 
       // Can only walk foward if the next square is not occupied
-      if (oneStepSquare && !oneStepSquare.piece) possibilities.push(oneStepSquare);
+      if (oneStepSquare && !oneStepSquare.piece) if (!wouldIBeInCheck(oneStepSquare)) possibilities.push(oneStepSquare);
       return possibilities;
     }
 
     if (square.piece.name == "knight") {
       // Can walk into any direction in an L if there is not a piece of his own
-      return lshape(square, squares).filter((s) => !s.piece || s.piece.team != square.piece?.team);
+      lshape(square, squares).forEach((position) => {
+        if (position.piece && position.piece.team == playingTeam) return;
+        if (!wouldIBeInCheck(position)) possibilities.push(position);
+      });
+      return possibilities;
     }
 
     if (square.piece.name == "bishop") {
@@ -80,11 +68,11 @@ export default function usePieces() {
         for (let i = 0; i < direction.length; i++) {
           const square = direction[i];
           if (square.piece && square.piece.team == playingTeam) break;
-          if (square.piece && square.piece.team != playingTeam) {
-            possibilities.push(square);
+          if (square.piece && square.piece.team == oppositeTeam) {
+            if (!wouldIBeInCheck(square)) possibilities.push(square);
             break;
           }
-          possibilities.push(square);
+          if (!wouldIBeInCheck(square)) possibilities.push(square);
         }
       });
 
@@ -97,7 +85,97 @@ export default function usePieces() {
         for (let i = 0; i < direction.length; i++) {
           const square = direction[i];
           if (square.piece && square.piece.team == playingTeam) break;
-          if (square.piece && square.piece.team != playingTeam) {
+          if (square.piece && square.piece.team == oppositeTeam) {
+            if (!wouldIBeInCheck(square)) possibilities.push(square);
+            break;
+          }
+          if (!wouldIBeInCheck(square)) possibilities.push(square);
+        }
+      });
+
+      return possibilities;
+    }
+
+    if (square.piece.name == "queen") {
+      // Bishop + Rook
+      lines(square, squares).forEach((direction) => {
+        for (let i = 0; i < direction.length; i++) {
+          const square = direction[i];
+          if (square.piece && square.piece.team == playingTeam) break;
+          if (square.piece && square.piece.team == oppositeTeam) {
+            if (!wouldIBeInCheck(square)) possibilities.push(square);
+            break;
+          }
+          if (!wouldIBeInCheck(square)) possibilities.push(square);
+        }
+      });
+      diagonals(square, squares).forEach((direction) => {
+        for (let i = 0; i < direction.length; i++) {
+          const square = direction[i];
+          if (square.piece && square.piece.team == playingTeam) break;
+          if (square.piece && square.piece.team == oppositeTeam) {
+            if (!wouldIBeInCheck(square)) possibilities.push(square);
+            break;
+          }
+          if (!wouldIBeInCheck(square)) possibilities.push(square);
+        }
+      });
+      return possibilities;
+    }
+
+    if (square.piece.name == "king") {
+      // Can walk into the neighbors squares in case there is no ally piece
+      neighbors(square, squares).forEach((possibleMove) => {
+        if (possibleMove.piece && possibleMove.piece.team == playingTeam) return;
+        if (wouldIBeInCheck(possibleMove)) return;
+        if (possibleMove.piece && possibleMove.piece.team == oppositeTeam) {
+          possibilities.push(possibleMove);
+          return;
+        }
+        possibilities.push(possibleMove);
+      });
+      return possibilities;
+    }
+
+    return [];
+  };
+
+  const calculatePiecePossibleAttacksAndDefenses = (square: Square, squares: Square[]): Square[] => {
+    if (!square || !square.piece) return [];
+    const possibilities: Square[] = [];
+
+    if (square.piece.name == "pawn") {
+      const leftCapture = left(foward(square, squares), squares);
+      const rightCapture = right(foward(square, squares), squares);
+      if (leftCapture) possibilities.push(leftCapture);
+      if (rightCapture) possibilities.push(rightCapture);
+      return possibilities;
+    }
+
+    if (square.piece.name == "knight") {
+      return lshape(square, squares);
+    }
+
+    if (square.piece.name == "bishop") {
+      diagonals(square, squares).forEach((direction) => {
+        for (let i = 0; i < direction.length; i++) {
+          const square = direction[i];
+          if (square.piece) {
+            possibilities.push(square);
+            break;
+          }
+          possibilities.push(square);
+        }
+      });
+
+      return possibilities;
+    }
+
+    if (square.piece.name == "rook") {
+      lines(square, squares).forEach((direction) => {
+        for (let i = 0; i < direction.length; i++) {
+          const square = direction[i];
+          if (square.piece) {
             possibilities.push(square);
             break;
           }
@@ -113,8 +191,7 @@ export default function usePieces() {
       lines(square, squares).forEach((direction) => {
         for (let i = 0; i < direction.length; i++) {
           const square = direction[i];
-          if (square.piece && square.piece.team == playingTeam) break;
-          if (square.piece && square.piece.team != playingTeam) {
+          if (square.piece) {
             possibilities.push(square);
             break;
           }
@@ -124,8 +201,7 @@ export default function usePieces() {
       diagonals(square, squares).forEach((direction) => {
         for (let i = 0; i < direction.length; i++) {
           const square = direction[i];
-          if (square.piece && square.piece.team == playingTeam) break;
-          if (square.piece && square.piece.team != playingTeam) {
+          if (square.piece) {
             possibilities.push(square);
             break;
           }
@@ -136,15 +212,8 @@ export default function usePieces() {
     }
 
     if (square.piece.name == "king") {
-      // Can walk into the neighbors squares in case there is no ally piece
-      neighbors(square, squares).forEach((s) => {
-        if (s.piece && s.piece.team == playingTeam) return;
-        // if (targetingSquares[["dark", "bright"].findIndex((t) => t == team)].includes(s)) return;
-        if (s.piece && s.piece.team == oppositeTeam) {
-          possibilities.push(s);
-          return;
-        }
-        possibilities.push(s);
+      neighbors(square, squares).forEach((possibleMove) => {
+        possibilities.push(possibleMove);
       });
       return possibilities;
     }
@@ -156,54 +225,41 @@ export default function usePieces() {
     const squares: Square[] = [];
 
     function generatePieceOrNothing(coordinates: string): { name: PieceName; team: TeamType; jsx: ReactElement } | null {
-      // if (coordinates[1] == "2" || coordinates[1] == "7")
-      //   return {
-      //     name: "pawn",
-      //     team: coordinates[1] == "2" ? "bright" : "dark",
-      //     jsx: <Piece piece="pawn" team={coordinates[1] == "2" ? "bright" : "dark"} />,
-      //   };
-      // if (coordinates == "a1" || coordinates == "h1" || coordinates == "a8" || coordinates == "h8")
-      //   return {
-      //     name: "rook",
-      //     team: coordinates[1] == "1" ? "bright" : "dark",
-      //     jsx: <Piece piece="rook" team={coordinates[1] == "1" ? "bright" : "dark"} />,
-      //   };
-      // if (coordinates == "b1" || coordinates == "g1" || coordinates == "b8" || coordinates == "g8")
-      //   return {
-      //     name: "knight",
-      //     team: coordinates[1] == "1" ? "bright" : "dark",
-      //     jsx: <Piece piece="knight" team={coordinates[1] == "1" ? "bright" : "dark"} />,
-      //   };
-      // if (coordinates == "c1" || coordinates == "f1" || coordinates == "c8" || coordinates == "f8")
-      //   return {
-      //     name: "bishop",
-      //     team: coordinates[1] == "1" ? "bright" : "dark",
-      //     jsx: <Piece piece="bishop" team={coordinates[1] == "1" ? "bright" : "dark"} />,
-      //   };
-      // if (coordinates == "d1" || coordinates == "d8")
-      //   return {
-      //     name: "queen",
-      //     team: coordinates[1] == "1" ? "bright" : "dark",
-      //     jsx: <Piece piece="queen" team={coordinates[1] == "1" ? "bright" : "dark"} />,
-      //   };
-      // if (coordinates == "e1" || coordinates == "e8")
-      //   return {
-      //     name: "king",
-      //     team: coordinates[1] == "1" ? "bright" : "dark",
-      //     jsx: <Piece piece="king" team={coordinates[1] == "1" ? "bright" : "dark"} />,
-      //   };
-
-      if (coordinates == "e5")
+      if (coordinates[1] == "2" || coordinates[1] == "7")
         return {
-          name: "king",
-          team: "bright",
-          jsx: <Piece piece="king" team={"bright"} />,
+          name: "pawn",
+          team: coordinates[1] == "2" ? "bright" : "dark",
+          jsx: <Piece piece="pawn" team={coordinates[1] == "2" ? "bright" : "dark"} />,
         };
-      if (coordinates == "d6")
+      if (coordinates == "a1" || coordinates == "h1" || coordinates == "a8" || coordinates == "h8")
         return {
           name: "rook",
-          team: "dark",
-          jsx: <Piece piece="rook" team={"dark"} />,
+          team: coordinates[1] == "1" ? "bright" : "dark",
+          jsx: <Piece piece="rook" team={coordinates[1] == "1" ? "bright" : "dark"} />,
+        };
+      if (coordinates == "b1" || coordinates == "g1" || coordinates == "b8" || coordinates == "g8")
+        return {
+          name: "knight",
+          team: coordinates[1] == "1" ? "bright" : "dark",
+          jsx: <Piece piece="knight" team={coordinates[1] == "1" ? "bright" : "dark"} />,
+        };
+      if (coordinates == "c1" || coordinates == "f1" || coordinates == "c8" || coordinates == "f8")
+        return {
+          name: "bishop",
+          team: coordinates[1] == "1" ? "bright" : "dark",
+          jsx: <Piece piece="bishop" team={coordinates[1] == "1" ? "bright" : "dark"} />,
+        };
+      if (coordinates == "d1" || coordinates == "d8")
+        return {
+          name: "queen",
+          team: coordinates[1] == "1" ? "bright" : "dark",
+          jsx: <Piece piece="queen" team={coordinates[1] == "1" ? "bright" : "dark"} />,
+        };
+      if (coordinates == "e1" || coordinates == "e8")
+        return {
+          name: "king",
+          team: coordinates[1] == "1" ? "bright" : "dark",
+          jsx: <Piece piece="king" team={coordinates[1] == "1" ? "bright" : "dark"} />,
         };
 
       return null;
@@ -229,13 +285,12 @@ export default function usePieces() {
   return { calculatePiecePossibleMoves, generateSquares };
 }
 
-// Help the helpers
+// Functions helpers for finding paths for pieces
+// It returns the square in that direction
 function getSquareById(id: string, squares: Square[]): Square | null {
   return squares.filter((s) => s.id == id)[0] ?? null;
 }
 
-// Functions helpers for finding paths for pieces
-// It returns the square in that direction
 function foward(square: Square | null, squares: Square[], times: number = 1): Square | null {
   if (!square || !square.piece) return null;
   const column = square.column;
